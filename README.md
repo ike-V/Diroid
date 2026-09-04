@@ -2,6 +2,8 @@
 
 A native macOS app for browsing your Android phone's storage over USB — no MTP, no kernel extension, no background daemon.
 
+![DroidReader browsing a phone's Downloads folder, with the Save to… context menu open](Screenshots/screenshot.jpg)
+
 ## What is this?
 
 macOS has no built-in way to see an Android phone's files when you plug it in over USB. Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kernel extension, kernel-level trust, and (in practice) a lot of flakiness getting it to actually mount. DroidReader takes a different path: it speaks Android's own USB debugging protocol (ADB) directly over a socket to the local `adb` server — the same mechanism Android Studio's Device File Explorer uses — reimplemented from scratch in Swift. No `adb` binary shelled out to, no third-party libraries, no elevated privileges, no daemons running in the background.
