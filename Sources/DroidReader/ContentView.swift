@@ -18,15 +18,22 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: model.navigateUp) {
-                    Image(systemName: "chevron.up")
+                ToolbarIconButton(systemName: "arrow.clockwise") {
+                    model.connectAndLoadRoot()
                 }
-                .disabled(model.currentPath == FileBrowserModel.rootPath)
 
-                Text(model.currentPath)
-                    .font(.system(.body, design: .monospaced))
-                    .lineLimit(1)
-                    .truncationMode(.head)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 2) {
+                        ForEach(pathComponents(model.currentPath), id: \.fullPath) { component in
+                            Text("/")
+                                .foregroundStyle(.secondary)
+                            PathSegment(label: component.label) {
+                                Task { await model.load(path: component.fullPath) }
+                            }
+                        }
+                    }
+                }
+                .font(.system(.body, design: .monospaced))
 
                 Spacer()
 
@@ -63,6 +70,10 @@ struct ContentView: View {
                 .menuStyle(.borderlessButton)
                 .tint(Color.androidGreen)
                 .frame(width: 24)
+
+                ToolbarIconButton(systemName: "square.and.arrow.up") {
+                    model.uploadFiles()
+                }
             }
             .padding(8)
 
@@ -121,6 +132,13 @@ struct ContentView: View {
         .onTapGesture(count: 2) {
             model.open(entry: entry)
         }
+        .contextMenu {
+            if !entry.isDirectory {
+                Button("Save to…") {
+                    model.saveToFolder(entry: entry)
+                }
+            }
+        }
     }
 
     private var gridView: some View {
@@ -158,5 +176,55 @@ struct ContentView: View {
         .onTapGesture(count: 2) {
             model.open(entry: entry)
         }
+        .contextMenu {
+            if !entry.isDirectory {
+                Button("Save to…") {
+                    model.saveToFolder(entry: entry)
+                }
+            }
+        }
     }
+}
+
+/// A toolbar icon button that highlights green on hover — a plain SwiftUI Button, so
+/// (unlike native Menu/List selection chrome) the hover color is fully ours to set.
+private struct ToolbarIconButton: View {
+    let systemName: String
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isHovering ? Color.androidGreen : .primary)
+        .onHover { isHovering = $0 }
+    }
+}
+
+/// One clickable, hoverable segment of the path breadcrumb.
+private struct PathSegment: View {
+    let label: String
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Text(label)
+            .foregroundStyle(isHovering ? Color.androidGreen : .primary)
+            .onHover { isHovering = $0 }
+            .onTapGesture(perform: action)
+    }
+}
+
+/// Splits an absolute path like "/sdcard/Download/Quick Share" into breadcrumb segments,
+/// each paired with the full path up to and including that segment.
+private func pathComponents(_ path: String) -> [(label: String, fullPath: String)] {
+    var result: [(label: String, fullPath: String)] = []
+    var accumulated = ""
+    for part in path.split(separator: "/") {
+        accumulated += "/\(part)"
+        result.append((String(part), accumulated))
+    }
+    return result
 }

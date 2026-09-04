@@ -45,12 +45,6 @@ final class FileBrowserModel: ObservableObject {
         isLoading = false
     }
 
-    func navigateUp() {
-        guard currentPath != Self.rootPath else { return }
-        let parent = (currentPath as NSString).deletingLastPathComponent
-        Task { await load(path: parent.isEmpty ? Self.rootPath : parent) }
-    }
-
     func open(entry: AdbDirEntry) {
         let fullPath = currentPath + "/" + entry.name
         if entry.isDirectory {
@@ -78,5 +72,86 @@ final class FileBrowserModel: ObservableObject {
         try data.write(to: fileURL)
 
         NSWorkspace.shared.open(fileURL)
+    }
+
+    /// Pulls a file from the device and saves a real copy wherever the user chooses,
+    /// without opening it — the explicit "give me a copy" path a drag-and-drop would
+    /// otherwise provide.
+    func saveToFolder(entry: AdbDirEntry) {
+        guard !entry.isDirectory, let client else { return }
+
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Save"
+        panel.message = "Choose a folder to save \"\(entry.name)\" to"
+
+        guard panel.runModal() == .OK, let destinationFolder = panel.url else { return }
+
+        let remotePath = currentPath + "/" + entry.name
+        Task {
+            do {
+                let data = try await Task.detached { try client.readFile(remotePath) }.value
+
+                let fileManager = FileManager.default
+                let baseName = (entry.name as NSString).deletingPathExtension
+                let ext = (entry.name as NSString).pathExtension
+
+                var destinationURL = destinationFolder.appendingPathComponent(entry.name)
+                var counter = 1
+                while fileManager.fileExists(atPath: destinationURL.path) {
+                    let candidateName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
+                    destinationURL = destinationFolder.appendingPathComponent(candidateName)
+                    counter += 1
+                }
+
+                try data.write(to: destinationURL)
+            } catch {
+                errorMessage = "\(error)"
+            }
+        }
+    }
+
+    /// Picks one or more local files and pushes them into the current phone directory.
+    func uploadFiles() {
+        guard let client else { return }
+
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Upload"
+        panel.message = "Choose files to upload to \(currentPath)"
+
+        guard panel.runModal() == .OK else { return }
+        let localURLs = panel.urls
+        let destinationPath = currentPath
+        var existingNames = Set(entries.map(\.name))
+
+        Task {
+            for localURL in localURLs {
+                do {
+                    let data = try Data(contentsOf: localURL)
+                    let originalName = localURL.lastPathComponent
+                    let baseName = (originalName as NSString).deletingPathExtension
+                    let ext = (originalName as NSString).pathExtension
+
+                    var fileName = originalName
+                    var counter = 1
+                    while existingNames.contains(fileName) {
+                        fileName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
+                        counter += 1
+                    }
+                    existingNames.insert(fileName)
+
+                    let remotePath = destinationPath + "/" + fileName
+                    try await Task.detached { try client.writeFile(remotePath, data: data) }.value
+                } catch {
+                    errorMessage = "\(error)"
+                }
+            }
+            await load(path: currentPath)
+        }
     }
 }

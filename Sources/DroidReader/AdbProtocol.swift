@@ -147,6 +147,26 @@ final class AdbConnection {
         let length = try readInt32LE()
         return try readExact(Int(length))
     }
+
+    /// Sends a 4-character token followed by a length-prefixed raw byte chunk, e.g. "DATA" + bytes.
+    /// Unlike `sendSyncRequest`, this takes raw bytes rather than a UTF-8 path string, since file
+    /// contents aren't necessarily valid text.
+    func sendSyncData(_ token: String, bytes: [UInt8]) throws {
+        precondition(token.utf8.count == 4, "sync token must be 4 bytes")
+        var payload = Array(token.utf8)
+        payload += withUnsafeBytes(of: Int32(bytes.count).littleEndian) { Array($0) }
+        payload += bytes
+        try writeAll(payload)
+    }
+
+    /// Sends the "DONE" token that terminates a SEND, followed by a raw (not length-prefixed)
+    /// little-endian mtime — the one place the sync protocol's usual token+length+payload shape
+    /// doesn't apply, per goadb's syncFileWriter.Close().
+    func sendSyncDone(mtime: Int32) throws {
+        var payload = Array("DONE".utf8)
+        payload += withUnsafeBytes(of: mtime.littleEndian) { Array($0) }
+        try writeAll(payload)
+    }
 }
 
 // MARK: - ADB file mode bits (from Android's bionic bits/stat.h; mirrors goadb's ParseFileModeFromAdb)
@@ -240,5 +260,33 @@ struct AdbClient {
             data.append(contentsOf: try conn.readSyncBytes())
         }
         return data
+    }
+
+    /// Pushes local data to a path on the device, creating/overwriting the file there.
+    /// Mirrors readFile's shape but in reverse: SEND + "path,mode" instead of RECV + path,
+    /// then DATA chunks (max 64KB each, the sync protocol's documented limit) instead of
+    /// reading them, then DONE + mtime to close out the transfer.
+    func writeFile(_ path: String, data: Data) throws {
+        let conn = try openSyncConnection()
+        defer { conn.close() }
+
+        let mode = 0o644
+        try conn.sendSyncRequest("SEND", path: "\(path),\(mode)")
+
+        let bytes = [UInt8](data)
+        let maxChunkSize = 64 * 1024
+        var offset = 0
+        while offset < bytes.count {
+            let end = min(offset + maxChunkSize, bytes.count)
+            try conn.sendSyncData("DATA", bytes: Array(bytes[offset..<end]))
+            offset = end
+        }
+
+        try conn.sendSyncDone(mtime: Int32(Date().timeIntervalSince1970))
+
+        let status = try conn.readSyncToken()
+        guard status == "OKAY" else {
+            throw AdbError.protocolError("expected OKAY after SEND, got '\(status)'")
+        }
     }
 }
