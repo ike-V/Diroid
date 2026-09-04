@@ -46,3 +46,7 @@ Plug in your phone before or after launching — the first time, you'll get a pr
 - This is a personal project, built and tested against one Samsung Galaxy Z Flip 5. It should work with any Android device with USB debugging enabled, but hasn't been tested more broadly.
 - `build.sh` ad-hoc code-signs the app — enough to run it on your own Mac, not enough to hand it to someone else's (their Mac will flag it as from an unidentified developer).
 - File access is scoped to whatever the `adb` shell user can already reach (typically `/sdcard` and its subdirectories) — the same scope as `adb shell`/`adb pull`/`adb push` from the command line.
+
+## License
+
+[MIT](LICENSE)
