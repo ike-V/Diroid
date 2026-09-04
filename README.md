@@ -17,6 +17,12 @@ macOS has no built-in way to see an Android phone's files when you plug it in ov
 - Click any segment of the path breadcrumb to jump straight to that folder
 - **Refresh** (↻) button to reconnect after unplugging/replugging your phone — no need to relaunch
 
+### Screenshots
+
+| Grid view | Upload | Path breadcrumb |
+| --- | --- | --- |
+| ![Grid/Icon view of a phone's Pictures folder](Screenshots/grid-view.jpg) | ![Upload file picker, choosing local files to push to the phone](Screenshots/upload.jpg) | ![Hovering a breadcrumb segment highlights it green](Screenshots/breadcrumb-hover.jpg) |
+
 ## Requirements
 
 - macOS 13 (Ventura) or later
