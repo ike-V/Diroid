@@ -13,6 +13,9 @@ macOS has no built-in way to see an Android phone's files when you plug it in ov
 - Browse your phone's storage like a Finder window — List and Icon/Grid view, with sortable Group By (Name / Size / Date Modified)
 - Double-click a file to pull it and open it in whatever app macOS would normally use for that file type
 - Right-click → **Save to…** to copy a file to a folder you choose, without opening it
+- Right-click → **Rename…** to rename or move a file or folder
+- Right-click → **Delete** to remove a file, or a folder and everything in it (with a confirmation prompt first)
+- **New Folder** (➕📁) button to create a folder in the current directory
 - **Upload** (↑) button to push local files onto the phone
 - Click any segment of the path breadcrumb to jump straight to that folder
 - **Refresh** (↻) button to reconnect after unplugging/replugging your phone — no need to relaunch
