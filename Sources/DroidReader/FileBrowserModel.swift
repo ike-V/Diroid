@@ -35,10 +35,12 @@ final class FileBrowserModel: ObservableObject {
         do {
             let fetched = try await Task.detached { try client.listDirectory(path) }.value
             currentPath = path
-            entries = fetched.sorted { a, b in
-                if a.isDirectory != b.isDirectory { return a.isDirectory }
-                return a.name.localizedStandardCompare(b.name) == .orderedAscending
-            }
+            entries = fetched.sorted(by: nameAscending)
+            // ponytail: was a duplicate inline copy of GroupBy.swift's nameAscending —
+            // entries = fetched.sorted { a, b in
+            //     if a.isDirectory != b.isDirectory { return a.isDirectory }
+            //     return a.name.localizedStandardCompare(b.name) == .orderedAscending
+            // }
         } catch {
             errorMessage = "\(error)"
         }
@@ -95,18 +97,44 @@ final class FileBrowserModel: ObservableObject {
                 let data = try await Task.detached { try client.readFile(remotePath) }.value
 
                 let fileManager = FileManager.default
-                let baseName = (entry.name as NSString).deletingPathExtension
-                let ext = (entry.name as NSString).pathExtension
-
-                var destinationURL = destinationFolder.appendingPathComponent(entry.name)
-                var counter = 1
-                while fileManager.fileExists(atPath: destinationURL.path) {
-                    let candidateName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
-                    destinationURL = destinationFolder.appendingPathComponent(candidateName)
-                    counter += 1
+                let fileName = Self.uniqueName(for: entry.name) { candidate in
+                    fileManager.fileExists(atPath: destinationFolder.appendingPathComponent(candidate).path)
                 }
+                // ponytail: was a duplicate copy of uploadFiles' collision-avoidance loop —
+                // let baseName = (entry.name as NSString).deletingPathExtension
+                // let ext = (entry.name as NSString).pathExtension
+                // var destinationURL = destinationFolder.appendingPathComponent(entry.name)
+                // var counter = 1
+                // while fileManager.fileExists(atPath: destinationURL.path) {
+                //     let candidateName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
+                //     destinationURL = destinationFolder.appendingPathComponent(candidateName)
+                //     counter += 1
+                // }
 
-                try data.write(to: destinationURL)
+                try data.write(to: destinationFolder.appendingPathComponent(fileName))
+            } catch {
+                errorMessage = "\(error)"
+            }
+        }
+    }
+
+    /// Deletes a file from the device after the user confirms, since this can't be undone.
+    func delete(entry: AdbDirEntry) {
+        guard !entry.isDirectory, let client else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Delete \"\(entry.name)\"?"
+        alert.informativeText = "This permanently deletes the file from your phone. This can't be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let remotePath = currentPath + "/" + entry.name
+        Task {
+            do {
+                try await Task.detached { try client.deleteFile(remotePath) }.value
+                await load(path: currentPath)
             } catch {
                 errorMessage = "\(error)"
             }
@@ -134,15 +162,16 @@ final class FileBrowserModel: ObservableObject {
                 do {
                     let data = try Data(contentsOf: localURL)
                     let originalName = localURL.lastPathComponent
-                    let baseName = (originalName as NSString).deletingPathExtension
-                    let ext = (originalName as NSString).pathExtension
-
-                    var fileName = originalName
-                    var counter = 1
-                    while existingNames.contains(fileName) {
-                        fileName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
-                        counter += 1
-                    }
+                    let fileName = Self.uniqueName(for: originalName) { existingNames.contains($0) }
+                    // ponytail: was a duplicate copy of saveToFolder's collision-avoidance loop —
+                    // let baseName = (originalName as NSString).deletingPathExtension
+                    // let ext = (originalName as NSString).pathExtension
+                    // var fileName = originalName
+                    // var counter = 1
+                    // while existingNames.contains(fileName) {
+                    //     fileName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
+                    //     counter += 1
+                    // }
                     existingNames.insert(fileName)
 
                     let remotePath = destinationPath + "/" + fileName
@@ -153,5 +182,19 @@ final class FileBrowserModel: ObservableObject {
             }
             await load(path: currentPath)
         }
+    }
+
+    /// Appends " (1)", " (2)", ... before the extension until `exists` reports the name is free.
+    private static func uniqueName(for originalName: String, exists: (String) -> Bool) -> String {
+        guard exists(originalName) else { return originalName }
+        let baseName = (originalName as NSString).deletingPathExtension
+        let ext = (originalName as NSString).pathExtension
+        var candidate: String
+        var counter = 1
+        repeat {
+            candidate = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
+            counter += 1
+        } while exists(candidate)
+        return candidate
     }
 }

@@ -132,13 +132,7 @@ struct ContentView: View {
         .onTapGesture(count: 2) {
             model.open(entry: entry)
         }
-        .contextMenu {
-            if !entry.isDirectory {
-                Button("Save to…") {
-                    model.saveToFolder(entry: entry)
-                }
-            }
-        }
+        .contextMenu { contextMenuItems(for: entry) }
     }
 
     private var gridView: some View {
@@ -176,11 +170,17 @@ struct ContentView: View {
         .onTapGesture(count: 2) {
             model.open(entry: entry)
         }
-        .contextMenu {
-            if !entry.isDirectory {
-                Button("Save to…") {
-                    model.saveToFolder(entry: entry)
-                }
+        .contextMenu { contextMenuItems(for: entry) }
+    }
+
+    @ViewBuilder
+    private func contextMenuItems(for entry: AdbDirEntry) -> some View {
+        if !entry.isDirectory {
+            Button("Save to…") {
+                model.saveToFolder(entry: entry)
+            }
+            Button("Delete", role: .destructive) {
+                model.delete(entry: entry)
             }
         }
     }

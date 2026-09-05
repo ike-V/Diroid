@@ -45,7 +45,7 @@ func groupedEntries(_ entries: [AdbDirEntry], by option: GroupByOption) -> [Entr
     }
 }
 
-private func nameAscending(_ a: AdbDirEntry, _ b: AdbDirEntry) -> Bool {
+func nameAscending(_ a: AdbDirEntry, _ b: AdbDirEntry) -> Bool {
     if a.isDirectory != b.isDirectory { return a.isDirectory }
     return a.name.localizedStandardCompare(b.name) == .orderedAscending
 }

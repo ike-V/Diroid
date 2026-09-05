@@ -167,21 +167,39 @@ final class AdbConnection {
         payload += withUnsafeBytes(of: mtime.littleEndian) { Array($0) }
         try writeAll(payload)
     }
+
+    // MARK: - Shell service (used for operations sync framing has no op for, e.g. delete)
+
+    /// Reads until the peer closes the connection — how a "shell:" command's combined
+    /// stdout/stderr arrives, with no length prefix and no further framing.
+    func readAllRemainingText() throws -> String {
+        var data = [UInt8]()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let n = input.read(&buffer, maxLength: buffer.count)
+            if n < 0 {
+                throw AdbError.connectionFailed(input.streamError?.localizedDescription ?? "read failed")
+            }
+            if n == 0 { break }
+            data.append(contentsOf: buffer[0..<n])
+        }
+        return String(decoding: data, as: UTF8.self)
+    }
 }
 
 // MARK: - ADB file mode bits (from Android's bionic bits/stat.h; mirrors goadb's ParseFileModeFromAdb)
 
 private let sIfDir: UInt32 = 0o040000
-private let sIfSymlink: UInt32 = 0o120000
+// private let sIfSymlink: UInt32 = 0o120000 // ponytail: unused, isSymlink field below was never read
 
 private func adbModeIsDirectory(_ mode: UInt32) -> Bool { mode & sIfDir == sIfDir }
-private func adbModeIsSymlink(_ mode: UInt32) -> Bool { mode & sIfSymlink == sIfSymlink }
+// private func adbModeIsSymlink(_ mode: UInt32) -> Bool { mode & sIfSymlink == sIfSymlink }
 
 struct AdbDirEntry: Identifiable, Hashable {
     var id: String { name }
     let name: String
     let isDirectory: Bool
-    let isSymlink: Bool
+    // let isSymlink: Bool // ponytail: dead field, no caller ever read it
     let size: Int32
     let modified: Date
 }
@@ -237,7 +255,7 @@ struct AdbClient {
             entries.append(AdbDirEntry(
                 name: name,
                 isDirectory: adbModeIsDirectory(modeRaw),
-                isSymlink: adbModeIsSymlink(modeRaw),
+                // isSymlink: adbModeIsSymlink(modeRaw), // ponytail: dead field, no caller ever read it
                 size: size,
                 modified: Date(timeIntervalSince1970: TimeInterval(mtimeRaw))
             ))
@@ -287,6 +305,25 @@ struct AdbClient {
         let status = try conn.readSyncToken()
         guard status == "OKAY" else {
             throw AdbError.protocolError("expected OKAY after SEND, got '\(status)'")
+        }
+    }
+
+    /// Deletes a file on the device via the shell service (`adb shell rm -f <path>`) —
+    /// the sync protocol used by list/read/write has no delete operation.
+    func deleteFile(_ path: String) throws {
+        let conn = try AdbConnection()
+        defer { conn.close() }
+
+        try conn.sendHostMessage("host:transport:\(serial)")
+        try conn.readHostStatus()
+
+        let escapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
+        try conn.sendHostMessage("shell:rm -f '\(escapedPath)'")
+        try conn.readHostStatus()
+
+        let output = try conn.readAllRemainingText().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !output.isEmpty {
+            throw AdbError.serverError(output)
         }
     }
 }
