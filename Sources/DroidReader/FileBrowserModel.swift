@@ -118,22 +118,97 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Deletes a file from the device after the user confirms, since this can't be undone.
+    /// Deletes a file or folder from the device after the user confirms, since this
+    /// can't be undone — a folder delete is recursive, so it gets scarier copy.
     func delete(entry: AdbDirEntry) {
-        guard !entry.isDirectory, let client else { return }
+        guard let client else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Delete \"\(entry.name)\"?"
-        alert.informativeText = "This permanently deletes the file from your phone. This can't be undone."
+        if entry.isDirectory {
+            alert.messageText = "Delete \"\(entry.name)\" and everything inside it?"
+            alert.informativeText = "This permanently deletes the folder and all its contents from your phone. This can't be undone."
+        } else {
+            alert.messageText = "Delete \"\(entry.name)\"?"
+            alert.informativeText = "This permanently deletes the file from your phone. This can't be undone."
+        }
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         let remotePath = currentPath + "/" + entry.name
+        let isDirectory = entry.isDirectory
         Task {
             do {
-                try await Task.detached { try client.deleteFile(remotePath) }.value
+                try await Task.detached {
+                    if isDirectory {
+                        try client.deleteDirectory(remotePath)
+                    } else {
+                        try client.deleteFile(remotePath)
+                    }
+                }.value
+                await load(path: currentPath)
+            } catch {
+                errorMessage = "\(error)"
+            }
+        }
+    }
+
+    /// Prompts for a new name and renames/moves the entry on the device.
+    func rename(entry: AdbDirEntry) {
+        guard let client else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Rename \"\(entry.name)\""
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+
+        let textField = NSTextField(string: entry.name)
+        textField.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let newName = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newName.isEmpty, newName != entry.name else { return }
+
+        let oldPath = currentPath + "/" + entry.name
+        let newPath = currentPath + "/" + newName
+        Task {
+            do {
+                try await Task.detached { try client.rename(oldPath, to: newPath) }.value
+                await load(path: currentPath)
+            } catch {
+                errorMessage = "\(error)"
+            }
+        }
+    }
+
+    /// Prompts for a name and creates a new folder in the current directory.
+    func makeDirectory() {
+        guard let client else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "New Folder"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+
+        let existingNames = Set(entries.map(\.name))
+        let textField = NSTextField(string: Self.uniqueName(for: "New Folder") { existingNames.contains($0) })
+        textField.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        let path = currentPath + "/" + name
+        Task {
+            do {
+                try await Task.detached { try client.makeDirectory(path) }.value
                 await load(path: currentPath)
             } catch {
                 errorMessage = "\(error)"

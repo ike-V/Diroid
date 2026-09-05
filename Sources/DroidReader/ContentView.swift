@@ -71,6 +71,10 @@ struct ContentView: View {
                 .tint(Color.androidGreen)
                 .frame(width: 24)
 
+                ToolbarIconButton(systemName: "folder.badge.plus") {
+                    model.makeDirectory()
+                }
+
                 ToolbarIconButton(systemName: "square.and.arrow.up") {
                     model.uploadFiles()
                 }
@@ -175,13 +179,16 @@ struct ContentView: View {
 
     @ViewBuilder
     private func contextMenuItems(for entry: AdbDirEntry) -> some View {
+        Button("Rename…") {
+            model.rename(entry: entry)
+        }
         if !entry.isDirectory {
             Button("Save to…") {
                 model.saveToFolder(entry: entry)
             }
-            Button("Delete", role: .destructive) {
-                model.delete(entry: entry)
-            }
+        }
+        Button("Delete", role: .destructive) {
+            model.delete(entry: entry)
         }
     }
 }

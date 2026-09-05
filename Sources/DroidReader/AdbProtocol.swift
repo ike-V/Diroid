@@ -308,22 +308,46 @@ struct AdbClient {
         }
     }
 
-    /// Deletes a file on the device via the shell service (`adb shell rm -f <path>`) —
-    /// the sync protocol used by list/read/write has no delete operation.
+    /// Deletes a file on the device (`adb shell rm -f <path>`) — the sync protocol
+    /// used by list/read/write has no delete operation.
     func deleteFile(_ path: String) throws {
+        try runShellCommand("rm -f \(shellQuoted(path))")
+    }
+
+    /// Recursively deletes a directory and everything in it (`adb shell rm -rf <path>`).
+    func deleteDirectory(_ path: String) throws {
+        try runShellCommand("rm -rf \(shellQuoted(path))")
+    }
+
+    /// Creates a directory on the device (`adb shell mkdir <path>`).
+    func makeDirectory(_ path: String) throws {
+        try runShellCommand("mkdir \(shellQuoted(path))")
+    }
+
+    /// Renames or moves a file/directory on the device (`adb shell mv -n <from> <to>`).
+    /// `-n` refuses to clobber an existing file at the destination rather than overwriting it.
+    func rename(_ path: String, to newPath: String) throws {
+        try runShellCommand("mv -n \(shellQuoted(path)) \(shellQuoted(newPath))")
+    }
+
+    /// Runs one shell command on the device and treats any output (adb shell merges
+    /// stdout/stderr) as an error, since these commands are silent on success.
+    private func runShellCommand(_ command: String) throws {
         let conn = try AdbConnection()
         defer { conn.close() }
 
         try conn.sendHostMessage("host:transport:\(serial)")
         try conn.readHostStatus()
-
-        let escapedPath = path.replacingOccurrences(of: "'", with: "'\\''")
-        try conn.sendHostMessage("shell:rm -f '\(escapedPath)'")
+        try conn.sendHostMessage("shell:\(command)")
         try conn.readHostStatus()
 
         let output = try conn.readAllRemainingText().trimmingCharacters(in: .whitespacesAndNewlines)
         if !output.isEmpty {
             throw AdbError.serverError(output)
         }
+    }
+
+    private func shellQuoted(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }
