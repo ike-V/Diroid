@@ -1,9 +1,8 @@
 import SwiftUI
 
-enum ViewMode: String, CaseIterable, Identifiable {
+enum ViewMode: String {
     case list = "List"
     case icon = "Icons"
-    var id: String { rawValue }
 }
 
 struct ContentView: View {
@@ -16,73 +15,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                ToolbarIconButton(systemName: "arrow.clockwise") {
-                    model.connectAndLoadRoot()
-                }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
-                        ForEach(pathComponents(model.currentPath), id: \.fullPath) { component in
-                            Text("/")
-                                .foregroundStyle(.secondary)
-                            PathSegment(label: component.label) {
-                                Task { await model.load(path: component.fullPath) }
-                            }
-                        }
-                    }
-                }
-                .font(.system(.body, design: .monospaced))
-
-                Spacer()
-
-                if model.isLoading {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                }
-
-                Picker("View", selection: $viewMode) {
-                    ForEach(ViewMode.allCases) { mode in
-                        Image(systemName: mode == .list ? "list.bullet" : "square.grid.2x2")
-                            .tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .tint(Color.androidGreen)
-                .frame(width: 90)
-
-                Menu {
-                    ForEach(GroupByOption.allCases) { option in
-                        Button {
-                            groupBy = option
-                        } label: {
-                            if groupBy == option {
-                                Label(option.rawValue, systemImage: "checkmark")
-                            } else {
-                                Text(option.rawValue)
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "square.grid.3x1.below.line.grid.1x2")
-                }
-                .menuStyle(.borderlessButton)
-                .tint(Color.androidGreen)
-                .frame(width: 24)
-
-                ToolbarIconButton(systemName: "folder.badge.plus") {
-                    model.makeDirectory()
-                }
-
-                ToolbarIconButton(systemName: "square.and.arrow.up") {
-                    model.uploadFiles()
-                }
-            }
-            .padding(8)
-
-            Divider()
-
+        Group {
             if let error = model.errorMessage {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
@@ -102,6 +35,66 @@ struct ContentView: View {
         }
         .frame(minWidth: 520, minHeight: 420)
         .onAppear { model.connectAndLoadRoot() }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                ToolbarIconButton(systemName: "arrow.clockwise") {
+                    model.connectAndLoadRoot()
+                }
+            }
+            .glassBackgroundHidden()
+
+            ToolbarItem(placement: .principal) { breadcrumbView }
+                .glassBackgroundHidden()
+
+            ToolbarItem(placement: .primaryAction) {
+                if model.isLoading {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                }
+            }
+            .glassBackgroundHidden()
+
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 10) {
+                    ViewModeButton(systemName: "list.bullet", isSelected: viewMode == .list) {
+                        viewMode = .list
+                    }
+                    ViewModeButton(systemName: "square.grid.2x2", isSelected: viewMode == .icon) {
+                        viewMode = .icon
+                    }
+                    GroupByMenu(groupBy: $groupBy)
+                }
+            }
+            .glassBackgroundHidden()
+
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 10) {
+                    ToolbarIconButton(systemName: "folder.badge.plus") {
+                        model.makeDirectory()
+                    }
+                    ToolbarIconButton(systemName: "square.and.arrow.up") {
+                        model.uploadFiles()
+                    }
+                }
+            }
+            .glassBackgroundHidden()
+        }
+    }
+
+    private var breadcrumbView: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 2) {
+                ForEach(pathComponents(model.currentPath), id: \.fullPath) { component in
+                    Text("/")
+                        .foregroundStyle(.secondary)
+                    PathSegment(label: component.label) {
+                        Task { await model.load(path: component.fullPath) }
+                    }
+                }
+            }
+        }
+        .font(.system(.body, design: .monospaced))
+        .frame(maxWidth: 400)
     }
 
     private var listView: some View {
@@ -193,20 +186,88 @@ struct ContentView: View {
     }
 }
 
-/// A toolbar icon button that highlights green on hover — a plain SwiftUI Button, so
-/// (unlike native Menu/List selection chrome) the hover color is fully ours to set.
+private extension ToolbarContent {
+    /// Hides the macOS 26 "Liquid Glass" grouped background macOS otherwise draws behind
+    /// every toolbar item; a no-op on older macOS, where that background doesn't exist.
+    @ToolbarContentBuilder
+    func glassBackgroundHidden() -> some ToolbarContent {
+        if #available(macOS 26, *) {
+            self.sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
+    }
+}
+
+/// Tints a view green while hovered (or `active`) — the hover-highlight shared by every
+/// control below. A plain SwiftUI modifier, so (unlike native Menu/List selection chrome)
+/// the color is fully ours to set.
+private struct HoverTint: ViewModifier {
+    var active: Bool = false
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(active || isHovering ? Color.androidGreen : .primary)
+            .onHover { isHovering = $0 }
+    }
+}
+
+private extension View {
+    func hoverTint(active: Bool = false) -> some View {
+        modifier(HoverTint(active: active))
+    }
+}
+
+/// A toolbar icon button that highlights green on hover.
 private struct ToolbarIconButton: View {
     let systemName: String
     let action: () -> Void
-    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isHovering ? Color.androidGreen : .primary)
-        .onHover { isHovering = $0 }
+        .hoverTint()
+    }
+}
+
+/// A view-mode toggle icon: green while selected, and green on hover otherwise — no
+/// picker/segmented-control background behind it, unlike SwiftUI's built-in `Picker`.
+private struct ViewModeButton: View {
+    let systemName: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+        }
+        .buttonStyle(.plain)
+        .hoverTint(active: isSelected)
+    }
+}
+
+/// The Group By menu button — green only on hover, matching `ToolbarIconButton`/`ViewModeButton`.
+private struct GroupByMenu: View {
+    @Binding var groupBy: GroupByOption
+
+    var body: some View {
+        Menu {
+            Picker("Group By", selection: $groupBy) {
+                ForEach(GroupByOption.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Image(systemName: "square.grid.3x1.below.line.grid.1x2")
+                .hoverTint()
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
     }
 }
 
@@ -214,12 +275,10 @@ private struct ToolbarIconButton: View {
 private struct PathSegment: View {
     let label: String
     let action: () -> Void
-    @State private var isHovering = false
 
     var body: some View {
         Text(label)
-            .foregroundStyle(isHovering ? Color.androidGreen : .primary)
-            .onHover { isHovering = $0 }
+            .hoverTint()
             .onTapGesture(perform: action)
     }
 }

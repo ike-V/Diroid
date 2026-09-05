@@ -6,5 +6,6 @@ struct DroidReaderApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowToolbarStyle(.unified(showsTitle: false))
     }
 }

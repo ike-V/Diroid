@@ -12,9 +12,19 @@ final class FileBrowserModel: ObservableObject {
 
     private var client: AdbClient?
 
+    /// Runs `operation`, and on failure sets `errorMessage` to its description — the
+    /// catch-and-stringify shared by every action below.
+    private func catching(_ operation: () async throws -> Void) async {
+        do {
+            try await operation()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
     func connectAndLoadRoot() {
         Task {
-            do {
+            await catching {
                 let serials = try await Task.detached { try AdbClient.listDeviceSerials() }.value
                 guard let serial = serials.first else {
                     errorMessage = "No device attached. Plug in your phone with USB debugging enabled."
@@ -22,8 +32,6 @@ final class FileBrowserModel: ObservableObject {
                 }
                 client = AdbClient(serial: serial)
                 await load(path: Self.rootPath)
-            } catch {
-                errorMessage = "\(error)"
             }
         }
     }
@@ -36,11 +44,6 @@ final class FileBrowserModel: ObservableObject {
             let fetched = try await Task.detached { try client.listDirectory(path) }.value
             currentPath = path
             entries = fetched.sorted(by: nameAscending)
-            // ponytail: was a duplicate inline copy of GroupBy.swift's nameAscending —
-            // entries = fetched.sorted { a, b in
-            //     if a.isDirectory != b.isDirectory { return a.isDirectory }
-            //     return a.name.localizedStandardCompare(b.name) == .orderedAscending
-            // }
         } catch {
             errorMessage = "\(error)"
         }
@@ -55,10 +58,8 @@ final class FileBrowserModel: ObservableObject {
         }
         guard let client else { return }
         Task {
-            do {
+            await catching {
                 try await downloadAndOpen(client: client, remotePath: fullPath, fileName: entry.name)
-            } catch {
-                errorMessage = "\(error)"
             }
         }
     }
@@ -93,27 +94,15 @@ final class FileBrowserModel: ObservableObject {
 
         let remotePath = currentPath + "/" + entry.name
         Task {
-            do {
+            await catching {
                 let data = try await Task.detached { try client.readFile(remotePath) }.value
 
                 let fileManager = FileManager.default
                 let fileName = Self.uniqueName(for: entry.name) { candidate in
                     fileManager.fileExists(atPath: destinationFolder.appendingPathComponent(candidate).path)
                 }
-                // ponytail: was a duplicate copy of uploadFiles' collision-avoidance loop —
-                // let baseName = (entry.name as NSString).deletingPathExtension
-                // let ext = (entry.name as NSString).pathExtension
-                // var destinationURL = destinationFolder.appendingPathComponent(entry.name)
-                // var counter = 1
-                // while fileManager.fileExists(atPath: destinationURL.path) {
-                //     let candidateName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
-                //     destinationURL = destinationFolder.appendingPathComponent(candidateName)
-                //     counter += 1
-                // }
 
                 try data.write(to: destinationFolder.appendingPathComponent(fileName))
-            } catch {
-                errorMessage = "\(error)"
             }
         }
     }
@@ -139,17 +128,9 @@ final class FileBrowserModel: ObservableObject {
         let remotePath = currentPath + "/" + entry.name
         let isDirectory = entry.isDirectory
         Task {
-            do {
-                try await Task.detached {
-                    if isDirectory {
-                        try client.deleteDirectory(remotePath)
-                    } else {
-                        try client.deleteFile(remotePath)
-                    }
-                }.value
+            await catching {
+                try await Task.detached { try client.delete(remotePath, recursive: isDirectory) }.value
                 await load(path: currentPath)
-            } catch {
-                errorMessage = "\(error)"
             }
         }
     }
@@ -176,11 +157,9 @@ final class FileBrowserModel: ObservableObject {
         let oldPath = currentPath + "/" + entry.name
         let newPath = currentPath + "/" + newName
         Task {
-            do {
+            await catching {
                 try await Task.detached { try client.rename(oldPath, to: newPath) }.value
                 await load(path: currentPath)
-            } catch {
-                errorMessage = "\(error)"
             }
         }
     }
@@ -207,11 +186,9 @@ final class FileBrowserModel: ObservableObject {
 
         let path = currentPath + "/" + name
         Task {
-            do {
+            await catching {
                 try await Task.detached { try client.makeDirectory(path) }.value
                 await load(path: currentPath)
-            } catch {
-                errorMessage = "\(error)"
             }
         }
     }
@@ -234,25 +211,14 @@ final class FileBrowserModel: ObservableObject {
 
         Task {
             for localURL in localURLs {
-                do {
+                await catching {
                     let data = try Data(contentsOf: localURL)
                     let originalName = localURL.lastPathComponent
                     let fileName = Self.uniqueName(for: originalName) { existingNames.contains($0) }
-                    // ponytail: was a duplicate copy of saveToFolder's collision-avoidance loop —
-                    // let baseName = (originalName as NSString).deletingPathExtension
-                    // let ext = (originalName as NSString).pathExtension
-                    // var fileName = originalName
-                    // var counter = 1
-                    // while existingNames.contains(fileName) {
-                    //     fileName = ext.isEmpty ? "\(baseName) (\(counter))" : "\(baseName) (\(counter)).\(ext)"
-                    //     counter += 1
-                    // }
                     existingNames.insert(fileName)
 
                     let remotePath = destinationPath + "/" + fileName
                     try await Task.detached { try client.writeFile(remotePath, data: data) }.value
-                } catch {
-                    errorMessage = "\(error)"
                 }
             }
             await load(path: currentPath)

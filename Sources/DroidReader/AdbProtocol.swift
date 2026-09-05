@@ -113,12 +113,7 @@ final class AdbConnection {
 
     /// Sends a 4-character command token followed by a length-prefixed path, e.g. "LIST" + path.
     func sendSyncRequest(_ token: String, path: String) throws {
-        precondition(token.utf8.count == 4, "sync token must be 4 bytes")
-        let pathBytes = Array(path.utf8)
-        var payload = Array(token.utf8)
-        payload += withUnsafeBytes(of: Int32(pathBytes.count).littleEndian) { Array($0) }
-        payload += pathBytes
-        try writeAll(payload)
+        try sendSyncData(token, bytes: Array(path.utf8))
     }
 
     /// Reads a 4-byte token. If it's "FAIL", reads the length-prefixed error and throws;
@@ -126,8 +121,7 @@ final class AdbConnection {
     func readSyncToken() throws -> String {
         let token = String(decoding: try readExact(4), as: UTF8.self)
         if token == "FAIL" {
-            let length = try readInt32LE()
-            throw AdbError.serverError(String(decoding: try readExact(Int(length)), as: UTF8.self))
+            throw AdbError.serverError(try readSyncString())
         }
         return token
     }
@@ -308,15 +302,10 @@ struct AdbClient {
         }
     }
 
-    /// Deletes a file on the device (`adb shell rm -f <path>`) — the sync protocol
-    /// used by list/read/write has no delete operation.
-    func deleteFile(_ path: String) throws {
-        try runShellCommand("rm -f \(shellQuoted(path))")
-    }
-
-    /// Recursively deletes a directory and everything in it (`adb shell rm -rf <path>`).
-    func deleteDirectory(_ path: String) throws {
-        try runShellCommand("rm -rf \(shellQuoted(path))")
+    /// Deletes a file or directory on the device (`adb shell rm -f`/`rm -rf`) — the sync
+    /// protocol used by list/read/write has no delete operation.
+    func delete(_ path: String, recursive: Bool) throws {
+        try runShellCommand("rm \(recursive ? "-rf" : "-f") \(shellQuoted(path))")
     }
 
     /// Creates a directory on the device (`adb shell mkdir <path>`).
