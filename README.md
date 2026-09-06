@@ -49,9 +49,9 @@ cd Diroid
 open Diroid.app
 ```
 
--Plug in your phone before or after launching — 
-The first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time).
-If you unplug/replug while the app is already open, hit the refresh (↻) button.
+- Plug in your phone before or after launching 
+- The first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time).
+- If you unplug/replug while the app is already open, hit the refresh (↻) button.
 
 
 
