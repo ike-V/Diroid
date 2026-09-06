@@ -1,8 +1,7 @@
 import SwiftUI
 
-enum ViewMode: String {
-    case list = "List"
-    case icon = "Icons"
+enum ViewMode {
+    case list, icon
 }
 
 struct ContentView: View {
@@ -63,14 +62,14 @@ struct ContentView: View {
             // narrows — a ToolbarItem wrapping several controls at once only carries
             // part of its content into the "»" overflow menu.
             ToolbarItem(placement: .primaryAction) {
-                ViewModeButton(systemName: "list.bullet", isSelected: viewMode == .list) {
+                ToolbarIconButton(systemName: "list.bullet", isSelected: viewMode == .list) {
                     viewMode = .list
                 }
             }
             .glassBackgroundHidden()
 
             ToolbarItem(placement: .primaryAction) {
-                ViewModeButton(systemName: "square.grid.2x2", isSelected: viewMode == .icon) {
+                ToolbarIconButton(systemName: "square.grid.2x2", isSelected: viewMode == .icon) {
                     viewMode = .icon
                 }
             }
@@ -241,25 +240,12 @@ private extension View {
     }
 }
 
-/// A toolbar icon button that highlights green on hover.
+/// A toolbar icon button that highlights green on hover (or `isSelected`, for a
+/// view-mode toggle) — no picker/segmented-control background behind it, unlike
+/// SwiftUI's built-in `Picker`.
 private struct ToolbarIconButton: View {
     let systemName: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-        }
-        .buttonStyle(.plain)
-        .hoverTint()
-    }
-}
-
-/// A view-mode toggle icon: green while selected, and green on hover otherwise — no
-/// picker/segmented-control background behind it, unlike SwiftUI's built-in `Picker`.
-private struct ViewModeButton: View {
-    let systemName: String
-    let isSelected: Bool
+    var isSelected: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -271,7 +257,7 @@ private struct ViewModeButton: View {
     }
 }
 
-/// The Group By menu button — green only on hover, matching `ToolbarIconButton`/`ViewModeButton`.
+/// The Group By menu button — green only on hover, matching `ToolbarIconButton`.
 private struct GroupByMenu: View {
     @Binding var groupBy: GroupByOption
 

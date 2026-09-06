@@ -30,12 +30,12 @@ final class AdbConnection {
     private let input: InputStream
     private let output: OutputStream
 
-    init(host: String = "127.0.0.1", port: Int = 5037) throws {
+    init() throws {
         var inputStream: InputStream?
         var outputStream: OutputStream?
-        Stream.getStreamsToHost(withName: host, port: port, inputStream: &inputStream, outputStream: &outputStream)
+        Stream.getStreamsToHost(withName: "127.0.0.1", port: 5037, inputStream: &inputStream, outputStream: &outputStream)
         guard let input = inputStream, let output = outputStream else {
-            throw AdbError.connectionFailed("could not create streams to \(host):\(port)")
+            throw AdbError.connectionFailed("could not create streams to the adb server")
         }
         input.open()
         output.open()

@@ -31,17 +31,20 @@ func groupedEntries(_ entries: [AdbDirEntry], by option: GroupByOption) -> [Entr
 
     case .size:
         let order = ["Folders", "Empty (0 KB)", "Under 1 MB", "1 MB – 10 MB", "10 MB – 100 MB", "Over 100 MB"]
-        let buckets = Dictionary(grouping: entries, by: sizeBucket)
-        return order.compactMap { title in
-            buckets[title].map { EntryGroup(title: title, entries: $0.sorted(by: nameAscending)) }
-        }
+        return orderedGroups(entries, order: order, bucket: sizeBucket)
 
     case .dateModified:
         let order = ["Today", "Yesterday", "Previous 7 Days", "Previous 30 Days", "Older"]
-        let buckets = Dictionary(grouping: entries, by: dateBucket)
-        return order.compactMap { title in
-            buckets[title].map { EntryGroup(title: title, entries: $0.sorted(by: nameAscending)) }
-        }
+        return orderedGroups(entries, order: order, bucket: dateBucket)
+    }
+}
+
+/// Buckets `entries` by `bucket`, then emits one `EntryGroup` per name in `order`
+/// that actually has entries — the shape shared by Size and Date Modified grouping.
+private func orderedGroups(_ entries: [AdbDirEntry], order: [String], bucket: (AdbDirEntry) -> String) -> [EntryGroup] {
+    let buckets = Dictionary(grouping: entries, by: bucket)
+    return order.compactMap { title in
+        buckets[title].map { EntryGroup(title: title, entries: $0.sorted(by: nameAscending)) }
     }
 }
 
