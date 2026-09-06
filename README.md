@@ -38,7 +38,7 @@ Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kerne
 
 **Overflow toolbar:**
 
-![Toolbar overflow menu showing every control still reachable in a narrow window](Screenshots/overflow-menu.jpg)
+<img src="Screenshots/overflow-menu.jpg" width="700" alt="Toolbar overflow menu showing every control still reachable in a narrow window">
 
 ## Requirements
 
