@@ -184,16 +184,13 @@ final class AdbConnection {
 // MARK: - ADB file mode bits (from Android's bionic bits/stat.h; mirrors goadb's ParseFileModeFromAdb)
 
 private let sIfDir: UInt32 = 0o040000
-// private let sIfSymlink: UInt32 = 0o120000 // ponytail: unused, isSymlink field below was never read
 
 private func adbModeIsDirectory(_ mode: UInt32) -> Bool { mode & sIfDir == sIfDir }
-// private func adbModeIsSymlink(_ mode: UInt32) -> Bool { mode & sIfSymlink == sIfSymlink }
 
 struct AdbDirEntry: Identifiable, Hashable {
     var id: String { name }
     let name: String
     let isDirectory: Bool
-    // let isSymlink: Bool // ponytail: dead field, no caller ever read it
     let size: Int32
     let modified: Date
 }
@@ -249,7 +246,6 @@ struct AdbClient {
             entries.append(AdbDirEntry(
                 name: name,
                 isDirectory: adbModeIsDirectory(modeRaw),
-                // isSymlink: adbModeIsSymlink(modeRaw), // ponytail: dead field, no caller ever read it
                 size: size,
                 modified: Date(timeIntervalSince1970: TimeInterval(mtimeRaw))
             ))
