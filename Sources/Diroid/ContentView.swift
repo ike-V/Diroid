@@ -31,7 +31,7 @@ struct ContentView: View {
                 gridView
             }
         }
-        .frame(minWidth: 520, minHeight: 420)
+        .frame(minWidth: 320, minHeight: 420)
         .onAppear { model.connectAndLoadRoot() }
         .alert("Error", isPresented: errorAlertPresented) {
             Button("OK", role: .cancel) {}
@@ -57,27 +57,40 @@ struct ContentView: View {
             }
             .glassBackgroundHidden()
 
+            // Each control below gets its own ToolbarItem (rather than a few grouped
+            // into shared HStacks) so macOS can generate a proper overflow-menu
+            // representation for every one of them individually when the window
+            // narrows — a ToolbarItem wrapping several controls at once only carries
+            // part of its content into the "»" overflow menu.
             ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 10) {
-                    ViewModeButton(systemName: "list.bullet", isSelected: viewMode == .list) {
-                        viewMode = .list
-                    }
-                    ViewModeButton(systemName: "square.grid.2x2", isSelected: viewMode == .icon) {
-                        viewMode = .icon
-                    }
-                    GroupByMenu(groupBy: $groupBy)
+                ViewModeButton(systemName: "list.bullet", isSelected: viewMode == .list) {
+                    viewMode = .list
                 }
             }
             .glassBackgroundHidden()
 
             ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 10) {
-                    ToolbarIconButton(systemName: "folder.badge.plus") {
-                        model.makeDirectory()
-                    }
-                    ToolbarIconButton(systemName: "square.and.arrow.up") {
-                        model.uploadFiles()
-                    }
+                ViewModeButton(systemName: "square.grid.2x2", isSelected: viewMode == .icon) {
+                    viewMode = .icon
+                }
+            }
+            .glassBackgroundHidden()
+
+            ToolbarItem(placement: .primaryAction) {
+                GroupByMenu(groupBy: $groupBy)
+            }
+            .glassBackgroundHidden()
+
+            ToolbarItem(placement: .primaryAction) {
+                ToolbarIconButton(systemName: "folder.badge.plus") {
+                    model.makeDirectory()
+                }
+            }
+            .glassBackgroundHidden()
+
+            ToolbarItem(placement: .primaryAction) {
+                ToolbarIconButton(systemName: "square.and.arrow.up") {
+                    model.uploadFiles()
                 }
             }
             .glassBackgroundHidden()

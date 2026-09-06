@@ -37,7 +37,7 @@ func groupedEntries(_ entries: [AdbDirEntry], by option: GroupByOption) -> [Entr
         }
 
     case .dateModified:
-        let order = ["Today", "Yesterday", "This Week", "This Month", "This Year", "Older"]
+        let order = ["Today", "Yesterday", "Previous 7 Days", "Previous 30 Days", "Older"]
         let buckets = Dictionary(grouping: entries, by: dateBucket)
         return order.compactMap { title in
             buckets[title].map { EntryGroup(title: title, entries: $0.sorted(by: nameAscending)) }
@@ -63,15 +63,20 @@ private func sizeBucket(for entry: AdbDirEntry) -> String {
     }
 }
 
+/// Matches Finder's own Date Modified grouping: rolling day-count windows throughout,
+/// not calendar-unit boundaries — a "This Month" bucket bounded by the calendar month
+/// would otherwise sit empty for the first week of every month, since anything from
+/// that early in the month is always within the last 7 days too.
 private func dateBucket(for entry: AdbDirEntry) -> String {
     let calendar = Calendar.current
     let now = Date()
     if calendar.isDateInToday(entry.modified) { return "Today" }
     if calendar.isDateInYesterday(entry.modified) { return "Yesterday" }
     if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now), entry.modified > weekAgo {
-        return "This Week"
+        return "Previous 7 Days"
     }
-    if calendar.isDate(entry.modified, equalTo: now, toGranularity: .month) { return "This Month" }
-    if calendar.isDate(entry.modified, equalTo: now, toGranularity: .year) { return "This Year" }
+    if let monthAgo = calendar.date(byAdding: .day, value: -30, to: now), entry.modified > monthAgo {
+        return "Previous 30 Days"
+    }
     return "Older"
 }
