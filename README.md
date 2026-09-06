@@ -1,12 +1,11 @@
-#  **Diroid**
+# Diroid
 
-<img src="Screenshots/icon.png" width="256" height="256" alt="Diroid app icon"> 
+<img src="Screenshots/icon.png" width="256" height="256" alt="Diroid app icon">
 
-
- A native macOS app for browsing your Android phone's storage over USB 
+A native macOS app for browsing your Android phone's storage over USB
 - no MTP
 - no kernel extension
-- no background daemon.
+- no background daemon
 
 ![Diroid listing a phone's internal storage](Screenshots/list-view.jpg)
 
@@ -28,7 +27,7 @@ Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kerne
 - **New Folder** (➕📁) button to create a folder in the current directory
 - **Upload** (↑) button to push local files onto the phone
 - Click path breadcrumbs to move to that folder.
-- The whole filesystem is browsable (permission-restricted system folders show error)
+- The whole filesystem is browsable (permission-restricted system folders show an error)
 - **Refresh** (↻) button to reconnect after unplugging/replugging your phone
 
 ### Screenshots
@@ -37,7 +36,7 @@ Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kerne
 | --- | --- | --- |
 | ![Grid/Icon view of a phone's internal storage](Screenshots/grid-view.jpg) | ![Camera roll grouped by Date Modified into Previous 7 Days / Previous 30 Days](Screenshots/Sort-by-date.jpg) | ![Creating a new folder from the toolbar](Screenshots/new-folder.jpg) |
 
-- Overflow toolbar -
+**Overflow toolbar:**
 
 ![Toolbar overflow menu showing every control still reachable in a narrow window](Screenshots/overflow-menu.jpg)
 
@@ -60,8 +59,6 @@ open Diroid.app
 - Plug in your phone before or after launching 
 - The first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time).
 - If you unplug/replug while the app is already open, hit the refresh (↻) button.
-
-
 
 ## License
 
