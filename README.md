@@ -7,7 +7,7 @@ A native macOS app for browsing your Android phone's storage over USB
 - no kernel extension
 - no background daemon
 
-![Diroid listing a phone's internal storage](Screenshots/list-view.jpg)
+<img src="Screenshots/list-view.jpg" width="700" alt="Diroid listing a phone's internal storage">
 
 ## What is this?
 
