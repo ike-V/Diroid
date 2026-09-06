@@ -298,39 +298,68 @@ struct AdbClient {
         }
     }
 
+    /// Checks whether `path` is actually listable, to disambiguate an empty `LIST` result:
+    /// adbd's sync service returns DONE with zero entries both when a directory is
+    /// genuinely empty and when opendir() failed (e.g. permission denied). `ls`'s own
+    /// exit status tells the two apart — its output doesn't, since `ls` also prints
+    /// plenty of output on success whenever the directory has real contents.
+    func checkDirectoryAccess(_ path: String) throws {
+        let (exitCode, output) = try runShellCommand("ls \(shellQuoted(path))")
+        guard exitCode == 0 else {
+            throw AdbError.serverError(output.isEmpty ? "cannot access \(path)" : output)
+        }
+    }
+
     /// Deletes a file or directory on the device (`adb shell rm -f`/`rm -rf`) — the sync
     /// protocol used by list/read/write has no delete operation.
     func delete(_ path: String, recursive: Bool) throws {
-        try runShellCommand("rm \(recursive ? "-rf" : "-f") \(shellQuoted(path))")
+        try runQuietShellCommand("rm \(recursive ? "-rf" : "-f") \(shellQuoted(path))")
     }
 
     /// Creates a directory on the device (`adb shell mkdir <path>`).
     func makeDirectory(_ path: String) throws {
-        try runShellCommand("mkdir \(shellQuoted(path))")
+        try runQuietShellCommand("mkdir \(shellQuoted(path))")
     }
 
     /// Renames or moves a file/directory on the device (`adb shell mv -n <from> <to>`).
     /// `-n` refuses to clobber an existing file at the destination rather than overwriting it.
     func rename(_ path: String, to newPath: String) throws {
-        try runShellCommand("mv -n \(shellQuoted(path)) \(shellQuoted(newPath))")
+        try runQuietShellCommand("mv -n \(shellQuoted(path)) \(shellQuoted(newPath))")
     }
 
-    /// Runs one shell command on the device and treats any output (adb shell merges
-    /// stdout/stderr) as an error, since these commands are silent on success.
-    private func runShellCommand(_ command: String) throws {
+    /// Runs a shell command that's expected to be silent and exit 0 on success — the
+    /// shape shared by delete, mkdir, and rename.
+    private func runQuietShellCommand(_ command: String) throws {
+        let (exitCode, output) = try runShellCommand(command)
+        guard exitCode == 0, output.isEmpty else {
+            throw AdbError.serverError(output.isEmpty ? "command failed (exit \(exitCode))" : output)
+        }
+    }
+
+    /// Runs one shell command on the device and returns its exit status alongside the
+    /// combined stdout/stderr text. The exit status doesn't come from the shell service
+    /// itself (it exposes no framing for one) — it's smuggled through by appending a
+    /// marker-prefixed `echo $?` and parsing it back off the last line.
+    private func runShellCommand(_ command: String) throws -> (exitCode: Int32, output: String) {
         let conn = try AdbConnection()
         defer { conn.close() }
 
         try conn.sendHostMessage("host:transport:\(serial)")
         try conn.readHostStatus()
-        try conn.sendHostMessage("shell:\(command)")
+        try conn.sendHostMessage("shell:\(command); echo \(Self.exitMarker)$?")
         try conn.readHostStatus()
 
-        let output = try conn.readAllRemainingText().trimmingCharacters(in: .whitespacesAndNewlines)
-        if !output.isEmpty {
-            throw AdbError.serverError(output)
+        var lines = try conn.readAllRemainingText()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: "\n")
+        guard let last = lines.popLast(), last.hasPrefix(Self.exitMarker),
+              let exitCode = Int32(last.dropFirst(Self.exitMarker.count)) else {
+            throw AdbError.protocolError("missing exit status for shell command")
         }
+        return (exitCode, lines.joined(separator: "\n"))
     }
+
+    private static let exitMarker = "__diroid_exit__:"
 
     private func shellQuoted(_ s: String) -> String {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"

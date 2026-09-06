@@ -3,7 +3,10 @@ import AppKit
 
 @MainActor
 final class FileBrowserModel: ObservableObject {
-    static let rootPath = "/sdcard"
+    /// The resolved real path behind the `/sdcard` symlink (confirmed via `adb shell
+    /// readlink -f /sdcard`) — shown directly so the breadcrumb never hides where you
+    /// actually are.
+    static let rootPath = "/storage/emulated/0"
 
     @Published private(set) var currentPath: String = rootPath
     @Published private(set) var entries: [AdbDirEntry] = []
@@ -11,6 +14,20 @@ final class FileBrowserModel: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     private var client: AdbClient?
+
+    /// Dismisses the current error without navigating away — the OK button on the
+    /// error alert leaves `currentPath`/`entries` exactly as they were.
+    func clearError() {
+        errorMessage = nil
+    }
+
+    /// Joins `base` (`currentPath` by default, which may be "/" itself now that the
+    /// breadcrumb's root segment is reachable) with a child name, without producing
+    /// a doubled "//".
+    private func childPath(_ name: String, in base: String? = nil) -> String {
+        let base = base ?? currentPath
+        return base == "/" ? "/\(name)" : "\(base)/\(name)"
+    }
 
     /// Runs `operation`, and on failure sets `errorMessage` to its description — the
     /// catch-and-stringify shared by every action below.
@@ -51,6 +68,11 @@ final class FileBrowserModel: ObservableObject {
         errorMessage = nil
         do {
             let fetched = try await Task.detached { try client.listDirectory(path) }.value
+            if fetched.isEmpty {
+                // An empty LIST result is ambiguous — confirm it's really an empty
+                // directory and not a silently-swallowed permission error.
+                try await Task.detached { try client.checkDirectoryAccess(path) }.value
+            }
             currentPath = path
             entries = fetched.sorted(by: nameAscending)
         } catch {
@@ -60,7 +82,7 @@ final class FileBrowserModel: ObservableObject {
     }
 
     func open(entry: AdbDirEntry) {
-        let fullPath = currentPath + "/" + entry.name
+        let fullPath = childPath(entry.name)
         if entry.isDirectory {
             Task { await load(path: fullPath) }
             return
@@ -101,7 +123,7 @@ final class FileBrowserModel: ObservableObject {
 
         guard panel.runModal() == .OK, let destinationFolder = panel.url else { return }
 
-        let remotePath = currentPath + "/" + entry.name
+        let remotePath = childPath(entry.name)
         Task {
             await catching {
                 let data = try await Task.detached { try client.readFile(remotePath) }.value
@@ -134,7 +156,7 @@ final class FileBrowserModel: ObservableObject {
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        let remotePath = currentPath + "/" + entry.name
+        let remotePath = childPath(entry.name)
         let isDirectory = entry.isDirectory
         Task {
             await mutate {
@@ -149,8 +171,8 @@ final class FileBrowserModel: ObservableObject {
         guard let newName = Self.promptForText(title: "Rename \"\(entry.name)\"", actionTitle: "Rename", defaultValue: entry.name),
               newName != entry.name else { return }
 
-        let oldPath = currentPath + "/" + entry.name
-        let newPath = currentPath + "/" + newName
+        let oldPath = childPath(entry.name)
+        let newPath = childPath(newName)
         Task {
             await mutate {
                 try client.rename(oldPath, to: newPath)
@@ -166,7 +188,7 @@ final class FileBrowserModel: ObservableObject {
         let defaultName = Self.uniqueName(for: "New Folder") { existingNames.contains($0) }
         guard let name = Self.promptForText(title: "New Folder", actionTitle: "Create", defaultValue: defaultName) else { return }
 
-        let path = currentPath + "/" + name
+        let path = childPath(name)
         Task {
             await mutate {
                 try client.makeDirectory(path)
@@ -198,7 +220,7 @@ final class FileBrowserModel: ObservableObject {
                     let fileName = Self.uniqueName(for: originalName) { existingNames.contains($0) }
                     existingNames.insert(fileName)
 
-                    let remotePath = destinationPath + "/" + fileName
+                    let remotePath = childPath(fileName, in: destinationPath)
                     try await Task.detached { try client.writeFile(remotePath, data: data) }.value
                 }
             }

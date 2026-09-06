@@ -14,20 +14,18 @@ struct ContentView: View {
         groupedEntries(model.entries, by: groupBy)
     }
 
+    /// Drives the error alert off `model.errorMessage` directly — dismissing it (OK or
+    /// clicking away) just clears the message, leaving `currentPath`/`entries` untouched.
+    private var errorAlertPresented: Binding<Bool> {
+        Binding(
+            get: { model.errorMessage != nil },
+            set: { isPresented in if !isPresented { model.clearError() } }
+        )
+    }
+
     var body: some View {
         Group {
-            if let error = model.errorMessage {
-                VStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text(error)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
-            } else if viewMode == .list {
+            if viewMode == .list {
                 listView
             } else {
                 gridView
@@ -35,6 +33,11 @@ struct ContentView: View {
         }
         .frame(minWidth: 520, minHeight: 420)
         .onAppear { model.connectAndLoadRoot() }
+        .alert("Error", isPresented: errorAlertPresented) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.errorMessage ?? "")
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 ToolbarIconButton(systemName: "arrow.clockwise") {
@@ -84,9 +87,13 @@ struct ContentView: View {
     private var breadcrumbView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
-                ForEach(pathComponents(model.currentPath), id: \.fullPath) { component in
-                    Text("/")
-                        .foregroundStyle(.secondary)
+                ForEach(Array(pathComponents(model.currentPath).enumerated()), id: \.element.fullPath) { index, component in
+                    // Skip the separator right after root — root's own label is "/",
+                    // which already reads as the slash leading into the next segment.
+                    if index > 1 {
+                        Text("/")
+                            .foregroundStyle(.secondary)
+                    }
                     PathSegment(label: component.label) {
                         Task { await model.load(path: component.fullPath) }
                     }
@@ -285,10 +292,12 @@ private struct PathSegment: View {
     }
 }
 
-/// Splits an absolute path like "/sdcard/Download/Quick Share" into breadcrumb segments,
-/// each paired with the full path up to and including that segment.
+/// Splits an absolute path like "/storage/emulated/0" into breadcrumb segments, each
+/// paired with the full path up to and including that segment. The root "/" is always
+/// the first segment, so it's just another clickable stop in the chain rather than a
+/// special case the caller has to handle separately.
 private func pathComponents(_ path: String) -> [(label: String, fullPath: String)] {
-    var result: [(label: String, fullPath: String)] = []
+    var result: [(label: String, fullPath: String)] = [("/", "/")]
     var accumulated = ""
     for part in path.split(separator: "/") {
         accumulated += "/\(part)"
