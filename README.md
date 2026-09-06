@@ -2,7 +2,7 @@
 
 A native macOS app for browsing your Android phone's storage over USB — no MTP, no kernel extension, no background daemon.
 
-![Diroid browsing a phone's Downloads folder, with the Save to… context menu open](Screenshots/screenshot.jpg)
+![Diroid listing a phone's internal storage](Screenshots/list-view.jpg)
 
 ## What is this?
 
@@ -10,21 +10,25 @@ macOS has no built-in way to see an Android phone's files when you plug it in ov
 
 ## Features
 
-- Browse your phone's storage like a Finder window — List and Icon/Grid view, with sortable Group By (Name / Size / Date Modified)
+- Browse your phone's storage like a Finder window — List and Grid view, groupable by Name, Size, or Date Modified
 - Double-click a file to pull it and open it in whatever app macOS would normally use for that file type
 - Right-click → **Save to…** to copy a file to a folder you choose, without opening it
 - Right-click → **Rename…** to rename or move a file or folder
 - Right-click → **Delete** to remove a file, or a folder and everything in it (with a confirmation prompt first)
 - **New Folder** (➕📁) button to create a folder in the current directory
 - **Upload** (↑) button to push local files onto the phone
-- Click any segment of the path breadcrumb to jump straight to that folder
+- Click any segment of the path breadcrumb to jump straight to that folder, including the root `/` itself — the whole filesystem is browsable, not just your phone's storage (permission-restricted system folders show a clear error instead of a blank screen)
 - **Refresh** (↻) button to reconnect after unplugging/replugging your phone — no need to relaunch
 
 ### Screenshots
 
-| Grid view | Upload | Path breadcrumb |
+| Grid view | Path breadcrumb | New Folder |
 | --- | --- | --- |
-| ![Grid/Icon view of a phone's Pictures folder](Screenshots/grid-view.jpg) | ![Upload file picker, choosing local files to push to the phone](Screenshots/upload.jpg) | ![Hovering a breadcrumb segment highlights it green](Screenshots/breadcrumb-hover.jpg) |
+| ![Grid/Icon view of a phone's internal storage](Screenshots/grid-view.jpg) | ![Hovering a breadcrumb segment highlights it green](Screenshots/breadcrumb-hover.jpg) | ![Creating a new folder from the toolbar](Screenshots/new-folder.jpg) |
+
+The toolbar adapts to a narrower window rather than clipping — everything that doesn't fit collapses into a "»" overflow menu:
+
+![Toolbar overflow menu showing every control still reachable in a narrow window](Screenshots/overflow-menu.jpg)
 
 ## Requirements
 
@@ -36,7 +40,7 @@ macOS has no built-in way to see an Android phone's files when you plug it in ov
 ## Getting started
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/ike-V/Diroid.git
 cd Diroid
 ./build.sh
 open Diroid.app
@@ -48,7 +52,7 @@ Plug in your phone before or after launching — the first time, you'll get a pr
 
 - This is a personal project, built and tested against one Samsung Galaxy Z Flip 5. It should work with any Android device with USB debugging enabled, but hasn't been tested more broadly.
 - `build.sh` ad-hoc code-signs the app — enough to run it on your own Mac, not enough to hand it to someone else's (their Mac will flag it as from an unidentified developer).
-- File access is scoped to whatever the `adb` shell user can already reach (typically `/sdcard` and its subdirectories) — the same scope as `adb shell`/`adb pull`/`adb push` from the command line.
+- Diroid opens to your phone's internal storage (`/storage/emulated/0`, the real path behind the familiar `/sdcard` shortcut), but the whole filesystem is reachable via the root `/` breadcrumb segment. File access is scoped to whatever the `adb` shell user can already reach — the same scope as `adb shell`/`adb pull`/`adb push` from the command line — so system folders like `/data` will show a permission error rather than their contents.
 
 ## License
 
