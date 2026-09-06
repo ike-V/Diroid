@@ -46,13 +46,9 @@ cd Diroid
 open Diroid.app
 ```
 
-Plug in your phone before or after launching — the first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time). If you unplug/replug while the app is already open, hit the refresh (↻) button in the toolbar rather than relaunching.
-
 ## Notes
 
-- This is a personal project, built and tested against one Samsung Galaxy Z Flip 5. It should work with any Android device with USB debugging enabled, but hasn't been tested more broadly.
-- `build.sh` ad-hoc code-signs the app — enough to run it on your own Mac, not enough to hand it to someone else's (their Mac will flag it as from an unidentified developer).
-- Diroid opens to your phone's internal storage (`/storage/emulated/0`, the real path behind the familiar `/sdcard` shortcut), but the whole filesystem is reachable via the root `/` breadcrumb segment. File access is scoped to whatever the `adb` shell user can already reach — the same scope as `adb shell`/`adb pull`/`adb push` from the command line — so system folders like `/data` will show a permission error rather than their contents.
+Plug in your phone before or after launching — the first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time). If you unplug/replug while the app is already open, hit the refresh (↻) button in the toolbar rather than relaunching.
 
 ## License
 
