@@ -1,4 +1,4 @@
-# Diroid
+<img src="Screenshots/icon.png" width="128" height="128" alt="Diroid app icon"> # Diroid
 
 <img src="Screenshots/icon.png" width="128" height="128" alt="Diroid app icon">
 
