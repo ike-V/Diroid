@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct DroidReaderApp: App {
+struct DiroidApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

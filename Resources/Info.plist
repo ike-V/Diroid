@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>DroidReader</string>
+    <string>Diroid</string>
     <key>CFBundleIdentifier</key>
-    <string>com.local.droidreader</string>
+    <string>com.local.diroid</string>
     <key>CFBundleIconFile</key>
-    <string>DroidReader.icns</string>
+    <string>Diroid.icns</string>
     <key>CFBundleName</key>
-    <string>DroidReader</string>
+    <string>Diroid</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

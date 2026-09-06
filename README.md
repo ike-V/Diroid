@@ -1,12 +1,12 @@
-# DroidReader
+# Diroid
 
 A native macOS app for browsing your Android phone's storage over USB — no MTP, no kernel extension, no background daemon.
 
-![DroidReader browsing a phone's Downloads folder, with the Save to… context menu open](Screenshots/screenshot.jpg)
+![Diroid browsing a phone's Downloads folder, with the Save to… context menu open](Screenshots/screenshot.jpg)
 
 ## What is this?
 
-macOS has no built-in way to see an Android phone's files when you plug it in over USB. Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kernel extension, kernel-level trust, and (in practice) a lot of flakiness getting it to actually mount. DroidReader takes a different path: it speaks Android's own USB debugging protocol (ADB) directly over a socket to the local `adb` server — the same mechanism Android Studio's Device File Explorer uses — reimplemented from scratch in Swift. No `adb` binary shelled out to, no third-party libraries, no elevated privileges, no daemons running in the background.
+macOS has no built-in way to see an Android phone's files when you plug it in over USB. Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kernel extension, kernel-level trust, and (in practice) a lot of flakiness getting it to actually mount. Diroid takes a different path: it speaks Android's own USB debugging protocol (ADB) directly over a socket to the local `adb` server — the same mechanism Android Studio's Device File Explorer uses — reimplemented from scratch in Swift. No `adb` binary shelled out to, no third-party libraries, no elevated privileges, no daemons running in the background.
 
 ## Features
 
@@ -31,15 +31,15 @@ macOS has no built-in way to see an Android phone's files when you plug it in ov
 - macOS 13 (Ventura) or later
 - Xcode Command Line Tools (for the Swift compiler — full Xcode isn't required): `xcode-select --install`
 - An Android phone with **USB debugging** enabled: Settings → About phone → tap "Build number" 7 times to unlock Developer options → Developer options → USB debugging
-- The `adb` server running on your Mac — easiest way is Homebrew: `brew install android-platform-tools`. DroidReader talks to this same background server; it just doesn't shell out to the `adb` binary itself.
+- The `adb` server running on your Mac — easiest way is Homebrew: `brew install android-platform-tools`. Diroid talks to this same background server; it just doesn't shell out to the `adb` binary itself.
 
 ## Getting started
 
 ```bash
 git clone <repo-url>
-cd DroidReader
+cd Diroid
 ./build.sh
-open DroidReader.app
+open Diroid.app
 ```
 
 Plug in your phone before or after launching — the first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time). If you unplug/replug while the app is already open, hit the refresh (↻) button in the toolbar rather than relaunching.
