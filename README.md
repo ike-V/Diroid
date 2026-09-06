@@ -1,5 +1,7 @@
 # Diroid
 
+<img src="Screenshots/icon.png" width="128" height="128" alt="Diroid app icon">
+
 A native macOS app for browsing your Android phone's storage over USB — no MTP, no kernel extension, no background daemon.
 
 ![Diroid listing a phone's internal storage](Screenshots/list-view.jpg)
