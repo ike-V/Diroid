@@ -22,9 +22,9 @@ macOS has no built-in way to see an Android phone's files when you plug it in ov
 
 ### Screenshots
 
-| Grid view | Path breadcrumb | New Folder |
+| Grid view | Group By: Date Modified | New Folder |
 | --- | --- | --- |
-| ![Grid/Icon view of a phone's internal storage](Screenshots/grid-view.jpg) | ![Hovering a breadcrumb segment highlights it green](Screenshots/breadcrumb-hover.jpg) | ![Creating a new folder from the toolbar](Screenshots/new-folder.jpg) |
+| ![Grid/Icon view of a phone's internal storage](Screenshots/grid-view.jpg) | ![Camera roll grouped by Date Modified into Previous 7 Days / Previous 30 Days](Screenshots/Sort-by-date.jpg) | ![Creating a new folder from the toolbar](Screenshots/new-folder.jpg) |
 
 The toolbar adapts to a narrower window rather than clipping — everything that doesn't fit collapses into a "»" overflow menu:
 
