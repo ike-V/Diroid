@@ -125,11 +125,7 @@ struct ContentView: View {
                     .font(.caption)
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            model.open(entry: entry)
-        }
-        .contextMenu { contextMenuItems(for: entry) }
+        .rowInteractions(model: model, entry: entry)
     }
 
     private var gridView: some View {
@@ -163,26 +159,32 @@ struct ContentView: View {
         }
         .frame(width: 96)
         .padding(.vertical, 6)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            model.open(entry: entry)
-        }
-        .contextMenu { contextMenuItems(for: entry) }
+        .rowInteractions(model: model, entry: entry)
     }
+}
 
-    @ViewBuilder
-    private func contextMenuItems(for entry: AdbDirEntry) -> some View {
-        Button("Rename…") {
-            model.rename(entry: entry)
+@ViewBuilder
+private func contextMenuItems(model: FileBrowserModel, entry: AdbDirEntry) -> some View {
+    Button("Rename…") {
+        model.rename(entry: entry)
+    }
+    if !entry.isDirectory {
+        Button("Save to…") {
+            model.saveToFolder(entry: entry)
         }
-        if !entry.isDirectory {
-            Button("Save to…") {
-                model.saveToFolder(entry: entry)
-            }
-        }
-        Button("Delete", role: .destructive) {
-            model.delete(entry: entry)
-        }
+    }
+    Button("Delete", role: .destructive) {
+        model.delete(entry: entry)
+    }
+}
+
+private extension View {
+    /// Double-click-to-open plus the shared context menu — the trailer common to both
+    /// the list row and the grid cell.
+    func rowInteractions(model: FileBrowserModel, entry: AdbDirEntry) -> some View {
+        contentShape(Rectangle())
+            .onTapGesture(count: 2) { model.open(entry: entry) }
+            .contextMenu { contextMenuItems(model: model, entry: entry) }
     }
 }
 

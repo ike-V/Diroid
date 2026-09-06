@@ -187,7 +187,7 @@ private let sIfDir: UInt32 = 0o040000
 
 private func adbModeIsDirectory(_ mode: UInt32) -> Bool { mode & sIfDir == sIfDir }
 
-struct AdbDirEntry: Identifiable, Hashable {
+struct AdbDirEntry: Identifiable {
     var id: String { name }
     let name: String
     let isDirectory: Bool

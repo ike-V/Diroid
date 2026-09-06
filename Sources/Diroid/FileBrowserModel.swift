@@ -22,6 +22,15 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
+    /// Runs a device-mutating `operation` off the main actor, then reloads the current
+    /// directory — the shape shared by delete, rename, and makeDirectory.
+    private func mutate(_ operation: @escaping @Sendable () throws -> Void) async {
+        await catching {
+            try await Task.detached(operation: operation).value
+            await load(path: currentPath)
+        }
+    }
+
     func connectAndLoadRoot() {
         Task {
             await catching {
@@ -128,9 +137,8 @@ final class FileBrowserModel: ObservableObject {
         let remotePath = currentPath + "/" + entry.name
         let isDirectory = entry.isDirectory
         Task {
-            await catching {
-                try await Task.detached { try client.delete(remotePath, recursive: isDirectory) }.value
-                await load(path: currentPath)
+            await mutate {
+                try client.delete(remotePath, recursive: isDirectory)
             }
         }
     }
@@ -138,28 +146,14 @@ final class FileBrowserModel: ObservableObject {
     /// Prompts for a new name and renames/moves the entry on the device.
     func rename(entry: AdbDirEntry) {
         guard let client else { return }
-
-        let alert = NSAlert()
-        alert.messageText = "Rename \"\(entry.name)\""
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Rename")
-        alert.addButton(withTitle: "Cancel")
-
-        let textField = NSTextField(string: entry.name)
-        textField.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
-        alert.accessoryView = textField
-        alert.window.initialFirstResponder = textField
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let newName = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !newName.isEmpty, newName != entry.name else { return }
+        guard let newName = Self.promptForText(title: "Rename \"\(entry.name)\"", actionTitle: "Rename", defaultValue: entry.name),
+              newName != entry.name else { return }
 
         let oldPath = currentPath + "/" + entry.name
         let newPath = currentPath + "/" + newName
         Task {
-            await catching {
-                try await Task.detached { try client.rename(oldPath, to: newPath) }.value
-                await load(path: currentPath)
+            await mutate {
+                try client.rename(oldPath, to: newPath)
             }
         }
     }
@@ -168,27 +162,14 @@ final class FileBrowserModel: ObservableObject {
     func makeDirectory() {
         guard let client else { return }
 
-        let alert = NSAlert()
-        alert.messageText = "New Folder"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
-
         let existingNames = Set(entries.map(\.name))
-        let textField = NSTextField(string: Self.uniqueName(for: "New Folder") { existingNames.contains($0) })
-        textField.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
-        alert.accessoryView = textField
-        alert.window.initialFirstResponder = textField
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
+        let defaultName = Self.uniqueName(for: "New Folder") { existingNames.contains($0) }
+        guard let name = Self.promptForText(title: "New Folder", actionTitle: "Create", defaultValue: defaultName) else { return }
 
         let path = currentPath + "/" + name
         Task {
-            await catching {
-                try await Task.detached { try client.makeDirectory(path) }.value
-                await load(path: currentPath)
+            await mutate {
+                try client.makeDirectory(path)
             }
         }
     }
@@ -223,6 +204,26 @@ final class FileBrowserModel: ObservableObject {
             }
             await load(path: currentPath)
         }
+    }
+
+    /// Shows a modal prompt for a single line of text, pre-filled with `defaultValue` —
+    /// the shape shared by Rename and New Folder. Returns the trimmed text, or nil if
+    /// the user cancelled or left it empty.
+    private static func promptForText(title: String, actionTitle: String, defaultValue: String) -> String? {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: actionTitle)
+        alert.addButton(withTitle: "Cancel")
+
+        let textField = NSTextField(string: defaultValue)
+        textField.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let text = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 
     /// Appends " (1)", " (2)", ... before the extension until `exists` reports the name is free.
