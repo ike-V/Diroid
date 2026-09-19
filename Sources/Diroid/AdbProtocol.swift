@@ -25,7 +25,7 @@ enum AdbError: Error, CustomStringConvertible {
 ///    tokens (LIST/DENT/DONE/DATA/...) and little-endian 32-bit integers, no hex.
 ///
 /// This mirrors goadb (github.com/zach-klippenstein/goadb), a Go implementation
-/// of this same protocol proven working against a real device earlier tonight.
+/// of this same protocol.
 final class AdbConnection {
     private let input: InputStream
     private let output: OutputStream
@@ -282,10 +282,8 @@ struct AdbClient {
         return data
     }
 
-    /// Pushes local data to a path on the device, creating/overwriting the file there.
-    /// Mirrors readFile's shape but in reverse: SEND + "path,mode" instead of RECV + path,
-    /// then DATA chunks (max 64KB each, the sync protocol's documented limit) instead of
-    /// reading them, then DONE + mtime to close out the transfer.
+    /// Pushes `data` to `path` on the device, creating or overwriting it. The sync
+    /// protocol caps each DATA chunk at 64 KB.
     func writeFile(_ path: String, data: Data) throws {
         let conn = try openSyncConnection()
         defer { conn.close() }

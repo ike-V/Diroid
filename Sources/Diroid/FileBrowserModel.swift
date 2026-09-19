@@ -9,8 +9,7 @@ struct ConnectionProblem {
 
 @MainActor
 final class FileBrowserModel: ObservableObject {
-    /// The resolved real path behind the `/sdcard` symlink (confirmed via `adb shell
-    /// readlink -f /sdcard`) — shown directly so the breadcrumb never hides where you
+    /// The real path behind the `/sdcard` symlink, so the breadcrumb shows where you
     /// actually are.
     static let rootPath = "/storage/emulated/0"
 
