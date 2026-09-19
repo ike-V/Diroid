@@ -34,6 +34,8 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 320, minHeight: 420)
+        .background(NotificationStyleBackground().ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .onAppear { model.connectAndLoadRoot() }
         .alert("Error", isPresented: errorAlertPresented) {
             Button("OK", role: .cancel) {}
@@ -148,6 +150,7 @@ struct ContentView: View {
             }
         }
         .listStyle(.inset)
+        .scrollContentBackground(.hidden)
         .tint(Color.androidGreen)
     }
 
