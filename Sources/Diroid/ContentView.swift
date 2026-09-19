@@ -8,6 +8,7 @@ struct ContentView: View {
     @StateObject private var model = FileBrowserModel()
     @State private var viewMode: ViewMode = .list
     @State private var groupBy: GroupByOption = .none
+    @AppStorage(Zoom.key) private var zoomScale = 1.0
 
     private var groups: [EntryGroup] {
         groupedEntries(model.entries, by: groupBy)
@@ -159,9 +160,10 @@ struct ContentView: View {
             if !entry.isDirectory {
                 Text(ByteCountFormatter.string(fromByteCount: Int64(entry.size), countStyle: .file))
                     .foregroundStyle(.secondary)
-                    .font(.caption)
+                    .font(.system(size: 10 * zoomScale))
             }
         }
+        .font(.system(size: 13 * zoomScale))
         .rowInteractions(model: model, entry: entry)
     }
 
@@ -174,7 +176,7 @@ struct ContentView: View {
                             .font(.headline)
                             .padding(.horizontal, 12)
                     }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96, maximum: 96), spacing: 12)], spacing: 16) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96 * zoomScale, maximum: 96 * zoomScale), spacing: 12)], spacing: 16) {
                         ForEach(group.entries) { entry in cell(for: entry) }
                     }
                     .padding(.horizontal, 12)
@@ -187,14 +189,14 @@ struct ContentView: View {
     private func cell(for entry: AdbDirEntry) -> some View {
         VStack(spacing: 4) {
             Image(systemName: entry.isDirectory ? "folder.fill" : "doc")
-                .font(.system(size: 40))
+                .font(.system(size: 40 * zoomScale))
                 .foregroundStyle(entry.isDirectory ? Color.androidGreen : .secondary)
             Text(entry.name)
-                .font(.caption)
+                .font(.system(size: 10 * zoomScale))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }
-        .frame(width: 96)
+        .frame(width: 96 * zoomScale)
         .padding(.vertical, 6)
         .rowInteractions(model: model, entry: entry)
     }
