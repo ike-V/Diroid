@@ -3,39 +3,39 @@ import SwiftUI
 /// Dark gradient card background: near-black fill with a faint reflective
 /// sheen along all four edges.
 struct NotificationStyleBackground: View {
+    private enum Side: CaseIterable {
+        case top, bottom, leading, trailing
+
+        var alignment: Alignment {
+            switch self {
+            case .top: .top
+            case .bottom: .bottom
+            case .leading: .leading
+            case .trailing: .trailing
+            }
+        }
+        var isHorizontal: Bool { self == .leading || self == .trailing }
+        var isOuterStart: Bool { self == .top || self == .leading }
+    }
+
+    /// A strip along `side`, brightest at the edge and fading inward.
+    private func sheen(_ side: Side, length: CGFloat, opacity: Double) -> some View {
+        LinearGradient(
+            colors: side.isOuterStart ? [.white.opacity(opacity), .clear] : [.clear, .white.opacity(opacity)],
+            startPoint: side.isHorizontal ? .leading : .top,
+            endPoint: side.isHorizontal ? .trailing : .bottom
+        )
+        .frame(width: side.isHorizontal ? length : nil, height: side.isHorizontal ? nil : length)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: side.alignment)
+    }
+
     var body: some View {
-        Color(white: 0.10)
-            .overlay(alignment: .top) {
-                LinearGradient(colors: [.white.opacity(0.036), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 13.5)
+        ZStack {
+            Color(white: 0.10)
+            ForEach(Side.allCases, id: \.self) { side in
+                sheen(side, length: 13.5, opacity: 0.036)
+                sheen(side, length: 3.6, opacity: 0.135)
             }
-            .overlay(alignment: .bottom) {
-                LinearGradient(colors: [.clear, .white.opacity(0.036)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 13.5)
-            }
-            .overlay(alignment: .top) {
-                LinearGradient(colors: [.white.opacity(0.135), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 3.6)
-            }
-            .overlay(alignment: .bottom) {
-                LinearGradient(colors: [.clear, .white.opacity(0.135)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 3.6)
-            }
-            .overlay(alignment: .leading) {
-                LinearGradient(colors: [.white.opacity(0.036), .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: 13.5)
-            }
-            .overlay(alignment: .trailing) {
-                LinearGradient(colors: [.clear, .white.opacity(0.036)], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: 13.5)
-            }
-            .overlay(alignment: .leading) {
-                LinearGradient(colors: [.white.opacity(0.135), .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: 3.6)
-            }
-            .overlay(alignment: .trailing) {
-                LinearGradient(colors: [.clear, .white.opacity(0.135)], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: 3.6)
-            }
+        }
     }
 }
