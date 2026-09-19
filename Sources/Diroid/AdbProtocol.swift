@@ -39,6 +39,18 @@ final class AdbConnection {
         }
         input.open()
         output.open()
+        // A refused connect only shows up as an error status; reads and writes
+        // on that stream then block forever instead of failing.
+        let deadline = Date().addingTimeInterval(3)
+        while output.streamStatus == .opening && Date() < deadline {
+            usleep(10_000)
+        }
+        guard output.streamStatus == .open else {
+            let reason = output.streamError?.localizedDescription ?? "adb server not reachable"
+            input.close()
+            output.close()
+            throw AdbError.connectionFailed(reason)
+        }
         self.input = input
         self.output = output
     }

@@ -1,6 +1,12 @@
 import Foundation
 import AppKit
 
+/// Why nothing can be listed, shown centered in place of the file list.
+struct ConnectionProblem {
+    let title: String
+    let detail: String
+}
+
 @MainActor
 final class FileBrowserModel: ObservableObject {
     /// The resolved real path behind the `/sdcard` symlink (confirmed via `adb shell
@@ -12,6 +18,7 @@ final class FileBrowserModel: ObservableObject {
     @Published private(set) var entries: [AdbDirEntry] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var connectionProblem: ConnectionProblem?
 
     private var client: AdbClient?
 
@@ -50,14 +57,23 @@ final class FileBrowserModel: ObservableObject {
 
     func connectAndLoadRoot() {
         Task {
-            await catching {
+            connectionProblem = nil
+            do {
                 let serials = try await Task.detached { try AdbClient.listDeviceSerials() }.value
                 guard let serial = serials.first else {
-                    errorMessage = "No device attached. Plug in your phone with USB debugging enabled."
+                    connectionProblem = ConnectionProblem(
+                        title: "No device found",
+                        detail: "Plug in your phone with USB debugging enabled, then press refresh.")
                     return
                 }
                 client = AdbClient(serial: serial)
                 await load(path: Self.rootPath)
+            } catch AdbError.connectionFailed(_) {
+                connectionProblem = ConnectionProblem(
+                    title: "The adb server isn't running",
+                    detail: "Run `adb start-server` in Terminal, then press refresh.")
+            } catch {
+                errorMessage = "\(error)"
             }
         }
     }

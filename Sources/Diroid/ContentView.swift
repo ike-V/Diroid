@@ -24,7 +24,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if viewMode == .list {
+            if let problem = model.connectionProblem {
+                connectionProblemView(problem)
+            } else if viewMode == .list {
                 listView
             } else {
                 gridView
@@ -114,6 +116,22 @@ struct ContentView: View {
         }
         .font(.system(.body, design: .monospaced))
         .frame(maxWidth: 400)
+    }
+
+    private func connectionProblemView(_ problem: ConnectionProblem) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text(problem.title)
+                .font(.headline)
+            Text(problem.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var listView: some View {
