@@ -43,7 +43,7 @@ Every existing solution wraps `libmtp` in a FUSE filesystem, which means a kerne
 ## Requirements
 
 - macOS 13 (Ventura) or later
-- Xcode Command Line Tools (for the Swift compiler — full Xcode isn't required): `xcode-select --install`
+- Xcode, set as the active developer directory: `sudo xcode-select -s /Applications/Xcode.app` (the Command Line Tools alone can't build SwiftUI's `@State` macro on the macOS 27 SDK)
 - An Android phone with **USB debugging** enabled: Settings → About phone → tap "Build number" 7 times to unlock Developer options → Developer options → USB debugging
 - The `adb` server running on your Mac — easiest way is Homebrew: `brew install android-platform-tools`. Diroid talks to this same background server; it doesn't shell out to the `adb` binary itself.
 
