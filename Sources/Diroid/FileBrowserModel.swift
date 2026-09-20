@@ -9,8 +9,7 @@ struct ConnectionProblem {
 
 @MainActor
 final class FileBrowserModel: ObservableObject {
-    /// The real path behind the `/sdcard` symlink, so the breadcrumb shows where you
-    /// actually are.
+    /// The real path behind the `/sdcard` symlink.
     static let rootPath = "/storage/emulated/0"
 
     @Published private(set) var currentPath: String = rootPath

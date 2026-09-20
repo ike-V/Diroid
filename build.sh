@@ -15,7 +15,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp .build/release/Diroid "$APP/Contents/MacOS/Diroid"
-# Stamps the linked SDK version so macOS applies its current window styling.
+# Stamps the binary with the installed SDK version.
 vtool -set-build-version macos 13.0 "$(xcrun --show-sdk-version)" -replace \
     -output "$APP/Contents/MacOS/Diroid" "$APP/Contents/MacOS/Diroid"
 cp Resources/Info.plist "$APP/Contents/Info.plist"

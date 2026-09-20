@@ -39,8 +39,7 @@ final class AdbConnection {
         }
         input.open()
         output.open()
-        // A refused connect only shows up as an error status; reads and writes
-        // on that stream then block forever instead of failing.
+        // A refused connect only sets an error status; reads and writes on it block forever.
         let deadline = Date().addingTimeInterval(3)
         while output.streamStatus == .opening && Date() < deadline {
             usleep(10_000)
