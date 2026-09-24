@@ -187,9 +187,10 @@ final class AdbConnection {
 
 // MARK: - File mode (S_IFDIR, from POSIX stat.h)
 
+private let sIfFmt: UInt32 = 0o170000
 private let sIfDir: UInt32 = 0o040000
 
-private func adbModeIsDirectory(_ mode: UInt32) -> Bool { mode & sIfDir == sIfDir }
+private func adbModeIsDirectory(_ mode: UInt32) -> Bool { mode & sIfFmt == sIfDir }
 
 struct AdbDirEntry: Identifiable {
     var id: String { name }
