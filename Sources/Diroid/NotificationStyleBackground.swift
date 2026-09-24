@@ -1,5 +1,21 @@
 import SwiftUI
 
+/// Makes the title bar transparent so the window's own background shows through it.
+private struct TransparentTitlebar: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { view.window?.titlebarAppearsTransparent = true }
+        return view
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+extension View {
+    func transparentTitlebar() -> some View {
+        background(TransparentTitlebar())
+    }
+}
+
 /// Dark gradient card background: near-black fill with a faint reflective
 /// sheen along all four edges.
 struct NotificationStyleBackground: View {

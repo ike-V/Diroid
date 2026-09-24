@@ -1,6 +1,10 @@
 # Diroid
 
-<img src="Screenshots/icon.png" width="256" height="256" alt="Diroid app icon">
+<p align="center">
+  <img src="Screenshots/icon.png" width="256" height="256" alt="Diroid app icon">
+</p>
+
+<p align="center"><em>Pronounced "dir-oid"</em></p>
 
 A native macOS app for browsing your Android phone's storage over USB
 - no MTP
@@ -59,6 +63,10 @@ open Diroid.app
 - Plug in your phone before or after launching 
 - The first time, you'll get a prompt on the phone itself asking to authorize this computer for USB debugging; accept it (check "always allow" to skip this next time).
 - If you unplug/replug while the app is already open, hit the refresh (↻) button.
+
+## Credits
+
+The Android robot in the app icon is reproduced or modified from work created and shared by Google and used according to terms described in the [Creative Commons 3.0 Attribution License](https://creativecommons.org/licenses/by/3.0/).
 
 ## License
 

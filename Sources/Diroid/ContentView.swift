@@ -35,6 +35,7 @@ struct ContentView: View {
         .frame(minWidth: 320, minHeight: 420)
         .background(NotificationStyleBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .transparentTitlebar()
         .onAppear { model.connectAndLoadRoot() }
         .alert("Error", isPresented: errorAlertPresented) {
             Button("OK", role: .cancel) {}
