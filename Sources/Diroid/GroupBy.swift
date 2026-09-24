@@ -39,8 +39,7 @@ func groupedEntries(_ entries: [AdbDirEntry], by option: GroupByOption) -> [Entr
     }
 }
 
-/// Buckets `entries` by `bucket`, then emits one `EntryGroup` per name in `order`
-/// that actually has entries — the shape shared by Size and Date Modified grouping.
+/// Groups `entries` by `bucket`, emitting non-empty groups in `order`.
 private func orderedGroups(_ entries: [AdbDirEntry], order: [String], bucket: (AdbDirEntry) -> String) -> [EntryGroup] {
     let buckets = Dictionary(grouping: entries, by: bucket)
     return order.compactMap { title in
@@ -66,10 +65,7 @@ private func sizeBucket(for entry: AdbDirEntry) -> String {
     }
 }
 
-/// Matches Finder's own Date Modified grouping: rolling day-count windows throughout,
-/// not calendar-unit boundaries — a "This Month" bucket bounded by the calendar month
-/// would otherwise sit empty for the first week of every month, since anything from
-/// that early in the month is always within the last 7 days too.
+/// Rolling day windows, like Finder, rather than calendar weeks/months.
 private func dateBucket(for entry: AdbDirEntry) -> String {
     let calendar = Calendar.current
     let now = Date()

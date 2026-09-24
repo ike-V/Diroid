@@ -9,7 +9,7 @@ struct ConnectionProblem {
 
 @MainActor
 final class FileBrowserModel: ObservableObject {
-    /// The real path behind the `/sdcard` symlink.
+    /// Where `/sdcard` resolves to.
     static let rootPath = "/storage/emulated/0"
 
     @Published private(set) var currentPath: String = rootPath
@@ -20,22 +20,18 @@ final class FileBrowserModel: ObservableObject {
 
     private var client: AdbClient?
 
-    /// Dismisses the current error without navigating away — the OK button on the
-    /// error alert leaves `currentPath`/`entries` exactly as they were.
+    /// Dismisses the error without touching `currentPath` or `entries`.
     func clearError() {
         errorMessage = nil
     }
 
-    /// Joins `base` (`currentPath` by default, which may be "/" itself now that the
-    /// breadcrumb's root segment is reachable) with a child name, without producing
-    /// a doubled "//".
+    /// Joins `base` (default `currentPath`) and `name`, avoiding "//" when `base` is "/".
     private func childPath(_ name: String, in base: String? = nil) -> String {
         let base = base ?? currentPath
         return base == "/" ? "/\(name)" : "\(base)/\(name)"
     }
 
-    /// Runs `operation`, and on failure sets `errorMessage` to its description — the
-    /// catch-and-stringify shared by every action below.
+    /// Runs `operation`, reporting any error via `errorMessage`.
     private func catching(_ operation: () async throws -> Void) async {
         do {
             try await operation()
@@ -44,8 +40,7 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Runs a device-mutating `operation` off the main actor, then reloads the current
-    /// directory — the shape shared by delete, rename, and makeDirectory.
+    /// Runs a device-mutating `operation` off the main actor, then reloads.
     private func mutate(_ operation: @escaping @Sendable () throws -> Void) async {
         await catching {
             try await Task.detached(operation: operation).value
@@ -83,8 +78,7 @@ final class FileBrowserModel: ObservableObject {
         do {
             let fetched = try await Task.detached { try client.listDirectory(path) }.value
             if fetched.isEmpty {
-                // An empty LIST result is ambiguous — confirm it's really an empty
-                // directory and not a silently-swallowed permission error.
+                // Empty may mean a swallowed permission error; check.
                 try await Task.detached { try client.checkDirectoryAccess(path) }.value
             }
             currentPath = path
@@ -109,8 +103,7 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Pulls a file from the device and opens it with the user's default app for its type,
-    /// mirroring what Android Studio's Device File Explorer does on double-click.
+    /// Pulls a file to a temp directory and opens it with its default app.
     private func downloadAndOpen(client: AdbClient, remotePath: String, fileName: String) async throws {
         let data = try await Task.detached { try client.readFile(remotePath) }.value
 
@@ -122,9 +115,7 @@ final class FileBrowserModel: ObservableObject {
         NSWorkspace.shared.open(fileURL)
     }
 
-    /// Pulls a file from the device and saves a real copy wherever the user chooses,
-    /// without opening it — the explicit "give me a copy" path a drag-and-drop would
-    /// otherwise provide.
+    /// Pulls a file into a user-chosen folder, suffixing the name on collision.
     func saveToFolder(entry: AdbDirEntry) {
         guard !entry.isDirectory, let client else { return }
 
@@ -152,8 +143,7 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Deletes a file or folder from the device after the user confirms, since this
-    /// can't be undone — a folder delete is recursive, so it gets scarier copy.
+    /// Deletes after confirmation; folders are deleted recursively.
     func delete(entry: AdbDirEntry) {
         guard let client else { return }
 
@@ -179,7 +169,7 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Prompts for a new name and renames/moves the entry on the device.
+    /// Prompts for a new name and renames the entry.
     func rename(entry: AdbDirEntry) {
         guard let client else { return }
         guard let newName = Self.promptForText(title: "Rename \"\(entry.name)\"", actionTitle: "Rename", defaultValue: entry.name),
@@ -210,7 +200,7 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Picks one or more local files and pushes them into the current phone directory.
+    /// Pushes user-picked local files into the current directory, suffixing names on collision.
     func uploadFiles() {
         guard let client else { return }
 
@@ -242,9 +232,7 @@ final class FileBrowserModel: ObservableObject {
         }
     }
 
-    /// Shows a modal prompt for a single line of text, pre-filled with `defaultValue` —
-    /// the shape shared by Rename and New Folder. Returns the trimmed text, or nil if
-    /// the user cancelled or left it empty.
+    /// Modal single-line text prompt. Returns the trimmed text, or nil if cancelled or empty.
     private static func promptForText(title: String, actionTitle: String, defaultValue: String) -> String? {
         let alert = NSAlert()
         alert.messageText = title
