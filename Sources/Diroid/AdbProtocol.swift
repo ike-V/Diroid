@@ -18,14 +18,12 @@ enum AdbError: Error, CustomStringConvertible {
 
 /// A single TCP connection to the adb server (127.0.0.1:5037).
 ///
-/// adb speaks two framings on the same connection, one after the other:
-///  - "host" framing, used for the initial handshake: a 4-byte ASCII hex length,
-///    followed by that many message bytes.
-///  - "sync" framing, entered only after sending "sync:" — raw 4-byte ASCII
-///    tokens (LIST/DENT/DONE/DATA/...) and little-endian 32-bit integers, no hex.
+/// Two framings share the connection, in sequence:
+///  - host: a 4-byte ASCII hex length, then that many bytes.
+///  - sync (after "sync:"): 4-byte ASCII tokens (LIST/DENT/DONE/DATA/...) and
+///    little-endian 32-bit integers.
 ///
-/// This mirrors goadb (github.com/zach-klippenstein/goadb), a Go implementation
-/// of this same protocol.
+/// Modeled on goadb (github.com/zach-klippenstein/goadb).
 final class AdbConnection {
     private let input: InputStream
     private let output: OutputStream
@@ -39,7 +37,8 @@ final class AdbConnection {
         }
         input.open()
         output.open()
-        // A refused connect only sets an error status; reads and writes on it block forever.
+        // Wait for the connect to resolve: a refused connect only sets an error status,
+        // and later reads/writes on the stream would block.
         let deadline = Date().addingTimeInterval(3)
         while output.streamStatus == .opening && Date() < deadline {
             usleep(10_000)
@@ -93,7 +92,7 @@ final class AdbConnection {
         return result
     }
 
-    // MARK: - Host framing (hex-length-prefixed, used only before "sync:")
+    // MARK: - Host framing
 
     func sendHostMessage(_ message: String) throws {
         let payload = Array(message.utf8)
@@ -111,7 +110,7 @@ final class AdbConnection {
         }
     }
 
-    /// Reads a second hex-length-prefixed payload after a status (e.g. host:devices' device list).
+    /// Reads a hex-length-prefixed payload, e.g. host:devices' device list or a FAIL reason.
     func readHostMessageText() throws -> String {
         let lengthHex = String(decoding: try readExact(4), as: UTF8.self)
         guard let length = Int(lengthHex, radix: 16) else {
@@ -120,15 +119,14 @@ final class AdbConnection {
         return String(decoding: try readExact(length), as: UTF8.self)
     }
 
-    // MARK: - Sync framing (raw tokens + little-endian ints, used after "sync:")
+    // MARK: - Sync framing
 
-    /// Sends a 4-character command token followed by a length-prefixed path, e.g. "LIST" + path.
+    /// Sends a token and a length-prefixed path, e.g. "LIST" + path.
     func sendSyncRequest(_ token: String, path: String) throws {
         try sendSyncData(token, bytes: Array(path.utf8))
     }
 
-    /// Reads a 4-byte token. If it's "FAIL", reads the length-prefixed error and throws;
-    /// otherwise returns the raw token (DENT/DONE/DATA/STAT/...) for the caller to switch on.
+    /// Reads a 4-byte token, throwing the server's message on "FAIL".
     func readSyncToken() throws -> String {
         let token = String(decoding: try readExact(4), as: UTF8.self)
         if token == "FAIL" {
@@ -153,9 +151,7 @@ final class AdbConnection {
         return try readExact(Int(length))
     }
 
-    /// Sends a 4-character token followed by a length-prefixed raw byte chunk, e.g. "DATA" + bytes.
-    /// Unlike `sendSyncRequest`, this takes raw bytes rather than a UTF-8 path string, since file
-    /// contents aren't necessarily valid text.
+    /// Sends a token and a length-prefixed byte chunk, e.g. "DATA" + file contents.
     func sendSyncData(_ token: String, bytes: [UInt8]) throws {
         precondition(token.utf8.count == 4, "sync token must be 4 bytes")
         var payload = Array(token.utf8)
@@ -164,19 +160,16 @@ final class AdbConnection {
         try writeAll(payload)
     }
 
-    /// Sends the "DONE" token that terminates a SEND, followed by a raw (not length-prefixed)
-    /// little-endian mtime — the one place the sync protocol's usual token+length+payload shape
-    /// doesn't apply, per goadb's syncFileWriter.Close().
+    /// Ends a SEND: "DONE" with the file's mtime in the length slot and no payload.
     func sendSyncDone(mtime: Int32) throws {
         var payload = Array("DONE".utf8)
         payload += withUnsafeBytes(of: mtime.littleEndian) { Array($0) }
         try writeAll(payload)
     }
 
-    // MARK: - Shell service (used for operations sync framing has no op for, e.g. delete)
+    // MARK: - Shell service
 
-    /// Reads until the peer closes the connection — how a "shell:" command's combined
-    /// stdout/stderr arrives, with no length prefix and no further framing.
+    /// Reads until the peer closes — how "shell:" output arrives, unframed.
     func readAllRemainingText() throws -> String {
         var data = [UInt8]()
         var buffer = [UInt8](repeating: 0, count: 4096)
@@ -192,7 +185,7 @@ final class AdbConnection {
     }
 }
 
-// MARK: - ADB file mode bits (from Android's bionic bits/stat.h; mirrors goadb's ParseFileModeFromAdb)
+// MARK: - File mode (S_IFDIR, from POSIX stat.h)
 
 private let sIfDir: UInt32 = 0o040000
 
@@ -206,9 +199,7 @@ struct AdbDirEntry: Identifiable {
     let modified: Date
 }
 
-/// High-level, read-only ADB client for one device. Each call opens its own
-/// connection and closes it when done — mirroring goadb/the real adb client,
-/// which does not keep a sync-mode connection open across multiple commands.
+/// ADB client for one device. Each call opens and closes its own connection.
 struct AdbClient {
     let serial: String
 
@@ -281,8 +272,7 @@ struct AdbClient {
         return data
     }
 
-    /// Pushes `data` to `path` on the device, creating or overwriting it. The sync
-    /// protocol caps each DATA chunk at 64 KB.
+    /// Creates or overwrites `path` with `data`. DATA chunks are capped at 64 KB.
     func writeFile(_ path: String, data: Data) throws {
         let conn = try openSyncConnection()
         defer { conn.close() }
@@ -307,11 +297,8 @@ struct AdbClient {
         }
     }
 
-    /// Checks whether `path` is actually listable, to disambiguate an empty `LIST` result:
-    /// adbd's sync service returns DONE with zero entries both when a directory is
-    /// genuinely empty and when opendir() failed (e.g. permission denied). `ls`'s own
-    /// exit status tells the two apart — its output doesn't, since `ls` also prints
-    /// plenty of output on success whenever the directory has real contents.
+    /// Throws if `ls path` fails. Disambiguates an empty LIST, which adbd returns both
+    /// for an empty directory and when opendir() fails (e.g. permission denied).
     func checkDirectoryAccess(_ path: String) throws {
         let (exitCode, output) = try runShellCommand("ls \(shellQuoted(path))")
         guard exitCode == 0 else {
@@ -319,25 +306,21 @@ struct AdbClient {
         }
     }
 
-    /// Deletes a file or directory on the device (`adb shell rm -f`/`rm -rf`) — the sync
-    /// protocol used by list/read/write has no delete operation.
+    /// `rm -f`/`rm -rf` via shell; sync has no delete.
     func delete(_ path: String, recursive: Bool) throws {
         try runQuietShellCommand("rm \(recursive ? "-rf" : "-f") \(shellQuoted(path))")
     }
 
-    /// Creates a directory on the device (`adb shell mkdir <path>`).
     func makeDirectory(_ path: String) throws {
         try runQuietShellCommand("mkdir \(shellQuoted(path))")
     }
 
-    /// Renames or moves a file/directory on the device (`adb shell mv -n <from> <to>`).
-    /// `-n` refuses to clobber an existing file at the destination rather than overwriting it.
+    /// `mv -n`: never overwrites an existing destination.
     func rename(_ path: String, to newPath: String) throws {
         try runQuietShellCommand("mv -n \(shellQuoted(path)) \(shellQuoted(newPath))")
     }
 
-    /// Runs a shell command that's expected to be silent and exit 0 on success — the
-    /// shape shared by delete, mkdir, and rename.
+    /// Runs a command expected to exit 0 with no output; throws otherwise.
     private func runQuietShellCommand(_ command: String) throws {
         let (exitCode, output) = try runShellCommand(command)
         guard exitCode == 0, output.isEmpty else {
@@ -345,10 +328,9 @@ struct AdbClient {
         }
     }
 
-    /// Runs one shell command on the device and returns its exit status alongside the
-    /// combined stdout/stderr text. The exit status doesn't come from the shell service
-    /// itself (it exposes no framing for one) — it's smuggled through by appending a
-    /// marker-prefixed `echo $?` and parsing it back off the last line.
+    /// Runs a command, returning its exit status and output. The shell service doesn't
+    /// report exit status, so a marker-prefixed `echo $?` is appended and parsed back off
+    /// the last line.
     private func runShellCommand(_ command: String) throws -> (exitCode: Int32, output: String) {
         let conn = try AdbConnection()
         defer { conn.close() }

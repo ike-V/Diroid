@@ -1,9 +1,6 @@
 #!/bin/bash
-# Builds Diroid.app from source: compiles the Swift package, assembles a
-# proper macOS app bundle around it using Resources/Info.plist and
-# Resources/Diroid.icns, and ad-hoc code-signs it (no Apple Developer
-# account needed — this is enough to run locally, but macOS will flag the app
-# as untrusted if you hand it to someone else's Mac).
+# Builds and ad-hoc signs Diroid.app. Ad-hoc signing runs locally; other Macs
+# will flag the app as untrusted.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -15,7 +12,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp .build/release/Diroid "$APP/Contents/MacOS/Diroid"
-# Stamps the binary with the installed SDK version.
+# Sets the minimum macOS (13.0) and the SDK version (the installed one).
 vtool -set-build-version macos 13.0 "$(xcrun --show-sdk-version)" -replace \
     -output "$APP/Contents/MacOS/Diroid" "$APP/Contents/MacOS/Diroid"
 cp Resources/Info.plist "$APP/Contents/Info.plist"

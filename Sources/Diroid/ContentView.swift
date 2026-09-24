@@ -14,8 +14,7 @@ struct ContentView: View {
         groupedEntries(model.entries, by: groupBy)
     }
 
-    /// Drives the error alert off `model.errorMessage` directly — dismissing it (OK or
-    /// clicking away) just clears the message, leaving `currentPath`/`entries` untouched.
+    /// Shows the alert while `model.errorMessage` is set; dismissing clears it.
     private var errorAlertPresented: Binding<Bool> {
         Binding(
             get: { model.errorMessage != nil },
@@ -61,11 +60,8 @@ struct ContentView: View {
             }
             .glassBackgroundHidden()
 
-            // Each control below gets its own ToolbarItem (rather than a few grouped
-            // into shared HStacks) so macOS can generate a proper overflow-menu
-            // representation for every one of them individually when the window
-            // narrows — a ToolbarItem wrapping several controls at once only carries
-            // part of its content into the "»" overflow menu.
+            // One ToolbarItem per control: an item wrapping several controls only
+            // partly carries over to the "»" overflow menu when the window narrows.
             ToolbarItem(placement: .primaryAction) {
                 ToolbarIconButton(systemName: "list.bullet", isSelected: viewMode == .list) {
                     viewMode = .list
@@ -105,8 +101,7 @@ struct ContentView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 ForEach(Array(pathComponents(model.currentPath).enumerated()), id: \.element.fullPath) { index, component in
-                    // Skip the separator right after root — root's own label is "/",
-                    // which already reads as the slash leading into the next segment.
+                    // No separator after root; its "/" label already reads as one.
                     if index > 1 {
                         Text("/")
                             .foregroundStyle(.secondary)
@@ -221,8 +216,7 @@ private func contextMenuItems(model: FileBrowserModel, entry: AdbDirEntry) -> so
 }
 
 private extension View {
-    /// Double-click-to-open plus the shared context menu — the trailer common to both
-    /// the list row and the grid cell.
+    /// Double-click to open, plus the context menu. Shared by list rows and grid cells.
     func rowInteractions(model: FileBrowserModel, entry: AdbDirEntry) -> some View {
         contentShape(Rectangle())
             .onTapGesture(count: 2) { model.open(entry: entry) }
@@ -231,8 +225,7 @@ private extension View {
 }
 
 private extension ToolbarContent {
-    /// Hides the macOS 26 "Liquid Glass" grouped background macOS otherwise draws behind
-    /// every toolbar item; a no-op on older macOS, where that background doesn't exist.
+    /// Hides the macOS 26 Liquid Glass background behind toolbar items; no-op earlier.
     @ToolbarContentBuilder
     func glassBackgroundHidden() -> some ToolbarContent {
         if #available(macOS 26, *) {
@@ -243,9 +236,7 @@ private extension ToolbarContent {
     }
 }
 
-/// Tints a view green while hovered (or `active`) — the hover-highlight shared by every
-/// control below. A plain SwiftUI modifier, so (unlike native Menu/List selection chrome)
-/// the color is fully ours to set.
+/// Tints a view green while hovered or `active`.
 private struct HoverTint: ViewModifier {
     var active: Bool = false
     @State private var isHovering = false
@@ -263,9 +254,7 @@ private extension View {
     }
 }
 
-/// A toolbar icon button that highlights green on hover (or `isSelected`, for a
-/// view-mode toggle) — no picker/segmented-control background behind it, unlike
-/// SwiftUI's built-in `Picker`.
+/// Borderless toolbar icon button, green on hover or when `isSelected`.
 private struct ToolbarIconButton: View {
     let systemName: String
     var isSelected: Bool = false
@@ -280,7 +269,7 @@ private struct ToolbarIconButton: View {
     }
 }
 
-/// The Group By menu button — green only on hover, matching `ToolbarIconButton`.
+/// Group By menu, styled to match `ToolbarIconButton`.
 private struct GroupByMenu: View {
     @Binding var groupBy: GroupByOption
 
@@ -314,10 +303,8 @@ private struct PathSegment: View {
     }
 }
 
-/// Splits an absolute path like "/storage/emulated/0" into breadcrumb segments, each
-/// paired with the full path up to and including that segment. The root "/" is always
-/// the first segment, so it's just another clickable stop in the chain rather than a
-/// special case the caller has to handle separately.
+/// Splits an absolute path into breadcrumb segments, each with its full path.
+/// Root "/" is always the first segment.
 private func pathComponents(_ path: String) -> [(label: String, fullPath: String)] {
     var result: [(label: String, fullPath: String)] = [("/", "/")]
     var accumulated = ""
