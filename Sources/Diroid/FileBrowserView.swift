@@ -61,19 +61,26 @@ struct FileBrowserView: View {
             if model.isLoading {
                 ProgressView().scaleEffect(0.6)
             }
-            Picker("", selection: $layout) {
-                Image(systemName: "list.bullet").tag(Layout.list)
-                Image(systemName: "square.grid.2x2").tag(Layout.grid)
+            HStack(spacing: 2) {
+                layoutButton("list.bullet", .list)
+                layoutButton("square.grid.2x2", .grid)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 80)
             Button { model.connectAndLoadRoot() } label: {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.plain)
         }
         .padding(12)
+    }
+
+    private func layoutButton(_ symbol: String, _ value: Layout) -> some View {
+        Button { layout = value } label: {
+            Image(systemName: symbol)
+                .foregroundStyle(layout == value ? Color.androidGreen : .secondary)
+                .frame(width: 28, height: 22)
+                .background(layout == value ? Color.androidGreen.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
     }
 
     private func row(for entry: AdbDirEntry) -> some View {
