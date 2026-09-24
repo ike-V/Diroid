@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// A second take on the file browser, styled like Syndroid's Synd Apps and Actions windows:
+/// The file browser window, styled like Syndroid's Synd Apps and Actions windows:
 /// a plain list of icon/title/caption rows and a bottom-right button bar instead of a toolbar.
-struct FileBrowserTestView: View {
+struct FileBrowserView: View {
+    private enum Layout { case list, grid }
+
     @StateObject private var model = FileBrowserModel()
+    @State private var layout = Layout.list
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,10 +14,12 @@ struct FileBrowserTestView: View {
             Group {
                 if let problem = model.connectionProblem {
                     connectionProblemView(problem)
-                } else {
+                } else if layout == .list {
                     List {
                         ForEach(model.entries) { entry in row(for: entry) }
                     }
+                } else {
+                    gridView
                 }
             }
             HStack {
@@ -56,6 +61,13 @@ struct FileBrowserTestView: View {
             if model.isLoading {
                 ProgressView().scaleEffect(0.6)
             }
+            Picker("", selection: $layout) {
+                Image(systemName: "list.bullet").tag(Layout.list)
+                Image(systemName: "square.grid.2x2").tag(Layout.grid)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 80)
             Button { model.connectAndLoadRoot() } label: {
                 Image(systemName: "arrow.clockwise")
             }
@@ -79,14 +91,28 @@ struct FileBrowserTestView: View {
             }
         }
         .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { model.open(entry: entry) }
-        .contextMenu {
-            Button("Rename…") { model.rename(entry: entry) }
-            if !entry.isDirectory {
-                Button("Save to…") { model.saveToFolder(entry: entry) }
+        .interactions(model: model, entry: entry)
+    }
+
+    private var gridView: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96, maximum: 96), spacing: 12)], spacing: 16) {
+                ForEach(model.entries) { entry in
+                    VStack(spacing: 4) {
+                        Image(systemName: entry.isDirectory ? "folder" : "doc")
+                            .font(.system(size: 40))
+                            .foregroundStyle(Color.androidGreen)
+                        Text(entry.name)
+                            .font(.system(size: 10))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    }
+                    .frame(width: 96)
+                    .padding(.vertical, 6)
+                    .interactions(model: model, entry: entry)
+                }
             }
-            Button("Delete", role: .destructive) { model.delete(entry: entry) }
+            .padding(12)
         }
     }
 
@@ -111,4 +137,19 @@ private func parentPath(_ path: String) -> String? {
     guard path != "/" else { return nil }
     let parent = (path as NSString).deletingLastPathComponent
     return parent.isEmpty ? "/" : parent
+}
+
+private extension View {
+    /// Double-click to open, plus the rename/save/delete context menu.
+    func interactions(model: FileBrowserModel, entry: AdbDirEntry) -> some View {
+        contentShape(Rectangle())
+            .onTapGesture(count: 2) { model.open(entry: entry) }
+            .contextMenu {
+                Button("Rename…") { model.rename(entry: entry) }
+                if !entry.isDirectory {
+                    Button("Save to…") { model.saveToFolder(entry: entry) }
+                }
+                Button("Delete", role: .destructive) { model.delete(entry: entry) }
+            }
+    }
 }
